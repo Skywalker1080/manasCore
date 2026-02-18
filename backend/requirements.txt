@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pydantic-settings
+sqlalchemy
+sqlite-vec
+python-multipart
+python-dotenv
