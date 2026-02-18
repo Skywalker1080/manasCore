@@ -1,16 +1,18 @@
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
+
+# Resolve paths relative to the project root (parent of logger/)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Configure Logger
 logger = logging.getLogger("PrismOps")
 logger.setLevel(logging.DEBUG)
 
 # Logging File Handler
-log_directory = "logs"
-os.makedirs(log_directory, exist_ok=True)
-log_file = Path(f"{log_directory}/pipeline_{datetime.now().strftime('%d_%m_%Y_%H_%M_%S')}.log")
+log_directory = PROJECT_ROOT / "logs"
+log_directory.mkdir(parents=True, exist_ok=True)
+log_file = log_directory / f"pipeline_{datetime.now().strftime('%d_%m_%Y_%H_%M_%S')}.log"
 
 #file handler
 file_handler =logging.FileHandler(log_file)

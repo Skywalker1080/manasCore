@@ -1,12 +1,11 @@
-import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
 from .routers import journal
-from .config import settings
+from .config import settings, DATA_DIR
 
 # Create data directory if it doesn't exist
-os.makedirs("backend/data", exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Create database tables
 # In a real project, we'd use Alembic for migrations

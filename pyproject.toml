@@ -11,3 +11,6 @@ dependencies = [
     "sqlalchemy>=2.0.46",
     "sqlite-vec>=0.1.6",
 ]
+
+[project.scripts]
+ai-journal = "main:main"
