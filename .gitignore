@@ -11,3 +11,4 @@ wheels/
 backend/data/
 .claude
 .env
+data/
