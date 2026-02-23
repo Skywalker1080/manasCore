@@ -6,13 +6,12 @@ class JournalEntry(Base):
     __tablename__ = "journal_entries"
 
     id = Column(Integer, primary_key=True, index=True)
+    date = Column(DateTime, default=datetime.utcnow)
     user_log = Column(String, nullable=False)
     emotion = Column(String, nullable=True)
-    sentiment = Column(Float, nullable=True)
-    # For sqlite-vec, embeddings are usually handled via virtual tables, 
-    # but we can store the raw vector as a BLOB if needed, 
-    # or just keep the metadata here. 
-    # The user requested 'ai_summary' to be the vector embeddings.
-    ai_summary = Column(String, nullable=True) # Placeholder for vector/metadata
-    date = Column(DateTime, default=datetime.utcnow)
+    sentiment = Column(Integer, nullable=True)
+    mode = Column(String, nullable=True)
+    summary = Column(String, nullable=True)
+    actionable_insight = Column(String, nullable=True)
+    tags = Column(String, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

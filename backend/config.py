@@ -1,6 +1,7 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
 
 # Resolve paths relative to the project root (parent of backend/)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -13,5 +14,12 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = str(PROJECT_ROOT / ".env")
+        extra = "ignore"
 
 settings = Settings()
+
+class EmotionConfig(BaseSettings):
+    EMOTION_CATEGORIES: list[str] = ["Happy", "Sad", "Longing", "Reflective"]
+    MODE_CATEGORIES: list[str] = ["Work", "Personal", "Health", "Relationships", "Finance", "Hobbies", "Travel", "Education"]
+    SENTIMENT_CATEGORIES: list[str] = ["Positive", "Negative", "Neutral"]
+    

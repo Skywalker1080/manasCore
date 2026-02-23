@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .database import engine, Base
-from .routers import journal
-from .config import settings, DATA_DIR
+from backend.database import engine, Base, create_vec_table
+from backend.routers import journal
+from backend.config import settings, DATA_DIR
 
 # Create data directory if it doesn't exist
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -10,6 +10,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 # Create database tables
 # In a real project, we'd use Alembic for migrations
 Base.metadata.create_all(bind=engine)
+create_vec_table()
 
 app = FastAPI(title="AI Cognitive Journal")
 

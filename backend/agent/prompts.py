@@ -20,8 +20,8 @@ class Prompt(BaseModel):
 # Version 1.0.0 of the Journal Analysis Prompt
 JOURNAL_ANALYSIS_PROMPT = Prompt(
     name="journal_analysis",
-    version="1.0.0",
-    description="Analyzes journal entries for emotion, sentiment, and summary.",
+    version="1.1.1",
+    description="Analyzes journal entries for emotion, sentiment, mode, summary, actionable insight and tags.",
     metadata={
         "categories": ["Work", "Personal", "Health", "Relationships", "Finance", "Hobbies", "Travel", "Education"],
         "emotions": ["Happy", "Sad", "Longing", "Reflective"],
@@ -35,7 +35,8 @@ JOURNAL_ANALYSIS_PROMPT = Prompt(
         "mode": "[Work, Personal, Health, Relationships, Finance, Hobbies, Travel, Education]",
         "emotion": "[Primary emotion, e.g., Conflicted, Longing, Happy, etc.]",
         "summary": "[A short, concise overview of the user's log]",
-        "actionable_insight": "[Empathetic, practical advice or next steps for the user]"
+        "actionable_insight": "[Empathetic, practical advice or next steps for the user]",
+        "tags": "2-3 Relevant tags related to the user's log"
         }}
 
         Log: {log}

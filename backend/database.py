@@ -23,3 +23,14 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def create_vec_table():
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        conn.execute(text(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS vec_entries USING vec0("
+            "entry_id INTEGER PRIMARY KEY, "
+            "embedding float[768]" # 768 dim vector embeddings
+            ")"
+        ))
+        conn.commit()

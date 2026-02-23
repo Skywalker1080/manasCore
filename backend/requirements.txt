@@ -5,3 +5,5 @@ sqlalchemy
 sqlite-vec
 python-multipart
 python-dotenv
+litellm
+litellm[google]
