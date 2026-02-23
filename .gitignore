@@ -12,3 +12,4 @@ backend/data/
 .claude
 .env
 data/
+logs/

@@ -27,10 +27,13 @@ def get_db():
 def create_vec_table():
     from sqlalchemy import text
     with engine.connect() as conn:
+        # Reset the table to apply dimension change (768)
+        # conn.execute(text("DROP TABLE IF EXISTS vec_entries"))
+        
         conn.execute(text(
             "CREATE VIRTUAL TABLE IF NOT EXISTS vec_entries USING vec0("
             "entry_id INTEGER PRIMARY KEY, "
-            "embedding float[768]" # 768 dim vector embeddings
+            "embedding float[768]" # Finalized at 768 dimensions (normalized)
             ")"
         ))
         conn.commit()

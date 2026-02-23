@@ -93,3 +93,32 @@ def delete_entry(entry_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Failed to delete entry")
     
     return None
+
+@router.get("/debug/vectors")
+def debug_vectors(db: Session = Depends(get_db)):
+    """
+    Debug endpoint to verify stored embeddings in the vec_entries virtual table.
+    """
+    logger.info("Debug: Fetching vector entries from vec_entries table")
+    try:
+        # We use vec_to_json to convert the blob back to a readable snippet for verification
+        result = db.execute(text(
+            "SELECT entry_id, vec_to_json(embedding) as vector_json FROM vec_entries LIMIT 10"
+        )).mappings().all()
+        
+        vectors = []
+        for row in result:
+            vec_list = json.loads(row["vector_json"])
+            vectors.append({
+                "entry_id": row["entry_id"],
+                "dimensions": len(vec_list),
+                "snippet": vec_list[:5] # Show first 5 dimensions as a snippet
+            })
+            
+        return {
+            "total_count": len(vectors),
+            "entries": vectors
+        }
+    except Exception as e:
+        logger.error(f"Error fetching debug vectors: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
