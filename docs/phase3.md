@@ -49,5 +49,5 @@ This phase implements the "Cognitive" part of the journal—using a persistent p
 
 ## 4. Verification
 
-- [ ] **Persistence**: Edit `goals.md` in the UI → check `backend/data/profiles/goals.md` to ensure it's updated.
+- [x] **Persistence**: Edit `goals.md` in the UI → check `backend/data/profiles/goals.md` to ensure it's updated.
 - [ ] **Context Injection**: Verify that the manually provided profile traits are correctly loaded into LLM prompts later in chat/analysis logic.
