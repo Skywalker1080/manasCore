@@ -1,11 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import engine, Base, create_vec_table
-from backend.routers import journal
+from backend.routers import journal, profile
 from backend.config import settings, DATA_DIR
+from backend.services.profile import ProfileService
 
 # Create data directory if it doesn't exist
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+# Initialize profiles
+ProfileService.ensure_profiles_setup()
 
 # Create database tables
 # In a real project, we'd use Alembic for migrations
@@ -25,6 +29,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(journal.router)
+app.include_router(profile.router)
 
 @app.get("/")
 def read_root():
