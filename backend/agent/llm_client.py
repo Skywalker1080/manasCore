@@ -24,7 +24,7 @@ def get_completion(message: str) -> str:
         logger.warning(f"Primary LLM completion failed: {e}. Attempting fallback (Ollama)")
         try:
             response = completion(
-                model="ollama/gpt-oss:20b-cloud",
+                model="ollama/gemma3:4b",
                 messages=[{"content": message, "role": "user"}],
                 api_base=settings.OLLAMA_BASE_URL
             )

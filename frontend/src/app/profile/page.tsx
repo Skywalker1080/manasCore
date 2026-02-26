@@ -297,6 +297,9 @@ function AIConfigSection() {
               <p className="text-xs text-muted-foreground/60">
                 Local Ollama instance URL. Used as a fallback when Gemini is unavailable.
               </p>
+              <p className="text-xs text-muted-foreground/80 mt-1">
+                <strong>Recommended:</strong> Ollama models with 4B parameters or more (e.g., <code>gemma3:4b</code>, <code>llama3.1:8b</code>, <code>llama2:7b</code>) for best results.
+              </p>
             </div>
 
             {/* Save button */}
