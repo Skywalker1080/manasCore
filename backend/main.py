@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import engine, Base, create_vec_table
-from backend.routers import journal, profile
+from backend.routers import journal, profile, analytics
 from backend.config import settings, DATA_DIR
 from backend.services.profile import ProfileService
 
@@ -30,6 +30,7 @@ app.add_middleware(
 # Include routers
 app.include_router(journal.router)
 app.include_router(profile.router)
+app.include_router(analytics.router)
 
 @app.get("/")
 def read_root():
