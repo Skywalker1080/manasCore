@@ -14,7 +14,8 @@ import { EmotionChart } from "@/components/emotion-chart"
 import { TagCloud } from "@/components/tag-cloud"
 import { StreakCard } from "@/components/streak-card"
 import { ModeChart } from "@/components/mode-chart"
-import { ArrowLeft, BarChart3, RefreshCw } from "lucide-react"
+import { ArrowLeft, BarChart3, RefreshCw, BookOpen } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
 
 type TimeRange = "7d" | "30d"
@@ -56,6 +57,13 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchAll(range)
   }, [range, fetchAll])
+
+  const hasData =
+    sentiment.length > 0 ||
+    emotions.length > 0 ||
+    tags.length > 0 ||
+    modes.length > 0 ||
+    (streak && streak.total_entries > 0)
 
   return (
     <div className="relative min-h-screen bg-background">
@@ -118,22 +126,66 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Grid layout */}
-        <div className="grid gap-5 md:grid-cols-2">
-          {/* Row 1 */}
-          <SentimentChart data={sentiment} isLoading={loading} />
-          <EmotionChart data={emotions} isLoading={loading} />
-
-          {/* Row 2 */}
-          <ModeChart data={modes} isLoading={loading} />
-          <TagCloud data={tags} isLoading={loading} />
-
-          {/* Row 3 — full width */}
-          <div className="md:col-span-2">
-            <StreakCard data={streak} isLoading={loading} />
+        {/* Loading skeletons */}
+        {loading ? (
+          <div className="grid gap-5 md:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-border/20 bg-card/50 p-6 space-y-4"
+              >
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-[200px] w-full rounded-lg" />
+              </div>
+            ))}
+            <div className="md:col-span-2 rounded-xl border border-border/20 bg-card/50 p-6 space-y-4">
+              <Skeleton className="h-5 w-36" />
+              <div className="flex gap-6">
+                <Skeleton className="h-16 w-24" />
+                <Skeleton className="h-16 w-24" />
+                <Skeleton className="h-16 w-24" />
+              </div>
+            </div>
           </div>
-        </div>
+        ) : !hasData ? (
+          /* Empty state */
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="rounded-2xl border border-border/20 bg-card/50 px-10 py-12 text-center max-w-md backdrop-blur-sm">
+              <BarChart3 className="mx-auto h-10 w-10 text-muted-foreground/30 mb-4" />
+              <h2 className="font-serif text-xl text-foreground/80 mb-2">
+                No data yet
+              </h2>
+              <p className="text-sm text-muted-foreground/50 mb-6 leading-relaxed">
+                Start journaling to see your emotional patterns, sentiment trends, and topic insights here.
+              </p>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <BookOpen className="h-4 w-4" />
+                Write your first entry
+              </Link>
+            </div>
+          </div>
+        ) : (
+          /* Grid layout */
+          <div className="grid gap-5 md:grid-cols-2">
+            {/* Row 1 */}
+            <SentimentChart data={sentiment} isLoading={loading} />
+            <EmotionChart data={emotions} isLoading={loading} />
+
+            {/* Row 2 */}
+            <ModeChart data={modes} isLoading={loading} />
+            <TagCloud data={tags} isLoading={loading} />
+
+            {/* Row 3 — full width */}
+            <div className="md:col-span-2">
+              <StreakCard data={streak} isLoading={loading} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
 }
+

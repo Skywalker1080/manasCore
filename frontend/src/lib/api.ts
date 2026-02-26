@@ -47,6 +47,12 @@ export interface StreakData {
   total_entries: number;
 }
 
+export interface ConfigData {
+  gemini_api_key_masked: string;
+  ollama_base_url: string;
+  message?: string;
+}
+
 // ---------------------------------------------------------------------------
 // API client
 // ---------------------------------------------------------------------------
@@ -108,6 +114,26 @@ export const api = {
   async getModes(range: string = "30d"): Promise<ModeCount[]> {
     const response = await fetch(`${API_BASE_URL}/analytics/modes?range=${range}`);
     if (!response.ok) throw new Error("Failed to fetch mode data");
+    return response.json();
+  },
+
+  // --- Profile Config ---
+
+  async getConfig(): Promise<ConfigData> {
+    const response = await fetch(`${API_BASE_URL}/profile/config`);
+    if (!response.ok) throw new Error("Failed to fetch config");
+    return response.json();
+  },
+
+  async updateConfig(data: { gemini_api_key?: string; ollama_base_url?: string }): Promise<ConfigData> {
+    const response = await fetch(`${API_BASE_URL}/profile/config`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to update config");
     return response.json();
   },
 };

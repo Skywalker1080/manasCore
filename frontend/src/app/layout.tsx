@@ -3,6 +3,7 @@ import { Instrument_Serif, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import OnboardingProvider from "@/components/onboarding-provider";
 import { Header } from "@/components/header";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
@@ -30,13 +31,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${instrumentSerif.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`${instrumentSerif.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased">
-        <OnboardingProvider>
-          <Header />
-          {children}
-        </OnboardingProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <OnboardingProvider>
+            <Header />
+            {children}
+          </OnboardingProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
 }
+

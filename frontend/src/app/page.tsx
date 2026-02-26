@@ -6,6 +6,7 @@ import { PreviousEntries } from "@/components/previous-entries"
 import { PromptSuggestions } from "@/components/prompt-suggestions"
 import { api, type JournalEntry } from "@/lib/api"
 import { CheckCircle2, XCircle } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type Notification = {
   type: "success" | "error"
@@ -15,6 +16,7 @@ type Notification = {
 export default function Home() {
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [notification, setNotification] = useState<Notification>(null)
   const journalInputRef = useRef<JournalInputHandle>(null)
   const dismissTimer = useRef<ReturnType<typeof setTimeout>>(null)
@@ -41,6 +43,8 @@ export default function Home() {
       setEntries(data)
     } catch (error) {
       console.error("Error fetching entries:", error)
+    } finally {
+      setInitialLoading(false)
     }
   }
 
@@ -103,8 +107,8 @@ export default function Home() {
           <div
             className={`flex items-center gap-2.5 rounded-xl border px-4 py-2.5 shadow-lg backdrop-blur-md ${
               notification.type === "success"
-                ? "border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-300"
-                : "border-red-500/20 bg-red-500/[0.08] text-red-300"
+                ? "border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-600 dark:text-emerald-300"
+                : "border-red-500/20 bg-red-500/[0.08] text-red-600 dark:text-red-300"
             }`}
           >
             {notification.type === "success" ? (
@@ -142,10 +146,37 @@ export default function Home() {
           {/* Journal input */}
           <JournalInput onSubmit={handleNewEntry} loading={loading} ref={journalInputRef} />
 
-          {/* Previous entries */}
-          <PreviousEntries entries={entries} onDelete={handleDelete} onEdit={handleEdit} />
+          {/* Loading skeletons for entry list */}
+          {initialLoading ? (
+            <div className="mx-auto w-full max-w-2xl px-6 pt-10 md:px-0">
+              <div className="mb-6 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border/30" />
+                <Skeleton className="h-3 w-28" />
+                <div className="h-px flex-1 bg-border/30" />
+              </div>
+              <div className="flex flex-col gap-3">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="rounded-xl border border-border/20 bg-card/50 p-4 space-y-2.5"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-3 w-32" />
+                      <Skeleton className="h-4 w-16 rounded-full" />
+                      <div className="flex-1" />
+                      <Skeleton className="h-3 w-12" />
+                    </div>
+                    <Skeleton className="h-3 w-[85%]" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <PreviousEntries entries={entries} onDelete={handleDelete} onEdit={handleEdit} />
+          )}
         </main>
       </div>
     </div>
   )
 }
+

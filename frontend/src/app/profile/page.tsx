@@ -5,10 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { remark } from "remark";
 import html from "remark-html";
 import OnboardingFlow from "@/components/onboarding-flow";
+import { api, type ConfigData } from "@/lib/api";
+import { CheckCircle2, XCircle, Key, Server } from "lucide-react";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -16,6 +20,15 @@ interface ProfileData {
   filename: string;
   content: string;
 }
+
+type ConfigNotification = {
+  type: "success" | "error";
+  message: string;
+} | null;
+
+// ---------------------------------------------------------------------------
+// ProfileSection — existing component, untouched
+// ---------------------------------------------------------------------------
 
 function ProfileSection({ section, title, description, refreshKey }: { section: string; title: string; description: string; refreshKey: number }) {
   const [content, setContent] = useState("");
@@ -143,6 +156,166 @@ function ProfileSection({ section, title, description, refreshKey }: { section: 
   );
 }
 
+// ---------------------------------------------------------------------------
+// AIConfigSection — new component for Phase 5
+// ---------------------------------------------------------------------------
+
+function AIConfigSection() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [notification, setNotification] = useState<ConfigNotification>(null);
+
+  // Form state
+  const [maskedKey, setMaskedKey] = useState("Not set");
+  const [newApiKey, setNewApiKey] = useState("");
+  const [ollamaUrl, setOllamaUrl] = useState("");
+
+  useEffect(() => {
+    fetchConfig();
+  }, []);
+
+  // Auto-dismiss notification
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const fetchConfig = async () => {
+    setIsLoading(true);
+    try {
+      const data: ConfigData = await api.getConfig();
+      setMaskedKey(data.gemini_api_key_masked);
+      setOllamaUrl(data.ollama_base_url);
+    } catch (err) {
+      console.error("Failed to load config:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setNotification(null);
+    try {
+      const payload: { gemini_api_key?: string; ollama_base_url?: string } = {};
+      if (newApiKey.trim()) payload.gemini_api_key = newApiKey.trim();
+      if (ollamaUrl.trim()) payload.ollama_base_url = ollamaUrl.trim();
+
+      const result = await api.updateConfig(payload);
+      setMaskedKey(result.gemini_api_key_masked);
+      setOllamaUrl(result.ollama_base_url);
+      setNewApiKey(""); // Clear the raw key field after save
+      setNotification({ type: "success", message: "Configuration saved successfully ✓" });
+    } catch (err) {
+      console.error("Failed to save config:", err);
+      setNotification({ type: "error", message: "Failed to save configuration. Please try again." });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Card className="border-border">
+      <CardHeader>
+        <CardTitle className="text-2xl flex items-center gap-2">
+          <Server className="h-5 w-5 text-muted-foreground" />
+          AI Configuration
+        </CardTitle>
+        <CardDescription>
+          Manage your AI provider settings. The API key is stored securely on disk and never exposed to the browser.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {/* Inline notification */}
+        {notification && (
+          <div
+            className={`flex items-center gap-2.5 rounded-lg border px-4 py-2.5 mb-6 text-sm ${
+              notification.type === "success"
+                ? "border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-600 dark:text-emerald-300"
+                : "border-red-500/20 bg-red-500/[0.08] text-red-600 dark:text-red-300"
+            }`}
+          >
+            {notification.type === "success" ? (
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+            ) : (
+              <XCircle className="h-4 w-4 shrink-0" />
+            )}
+            <span className="font-medium">{notification.message}</span>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Gemini API Key */}
+            <div className="space-y-2">
+              <Label htmlFor="gemini-api-key" className="flex items-center gap-2 text-sm font-medium">
+                <Key className="h-3.5 w-3.5 text-muted-foreground" />
+                Gemini API Key
+              </Label>
+              <Input
+                id="gemini-api-key"
+                type="password"
+                value={newApiKey}
+                onChange={(e) => setNewApiKey(e.target.value)}
+                placeholder={maskedKey !== "Not set" ? `Current: ${maskedKey}` : "Enter your Gemini API key"}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground/60">
+                {maskedKey !== "Not set"
+                  ? `Saved key: ${maskedKey} — leave blank to keep the current key.`
+                  : "No API key configured. Enter one to enable Gemini as your AI provider."}
+              </p>
+            </div>
+
+            {/* Ollama Base URL */}
+            <div className="space-y-2">
+              <Label htmlFor="ollama-url" className="flex items-center gap-2 text-sm font-medium">
+                <Server className="h-3.5 w-3.5 text-muted-foreground" />
+                Ollama Base URL
+              </Label>
+              <Input
+                id="ollama-url"
+                type="url"
+                value={ollamaUrl}
+                onChange={(e) => setOllamaUrl(e.target.value)}
+                placeholder="http://localhost:11434"
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground/60">
+                Local Ollama instance URL. Used as a fallback when Gemini is unavailable.
+              </p>
+            </div>
+
+            {/* Save button */}
+            <div className="flex justify-end pt-2">
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save Configuration"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ProfilePage — updated with 4 tabs
+// ---------------------------------------------------------------------------
+
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("personality");
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -159,18 +332,17 @@ export default function ProfilePage() {
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
-    // Trigger a re-fetch of all profile sections
     setRefreshKey((prev) => prev + 1);
   };
 
   return (
     <>
       {showOnboarding && <OnboardingFlow onComplete={handleOnboardingComplete} />}
-      <div className="container mx-auto py-10 max-w-4xl px-4 md:px-6">
+      <div className="mx-auto py-10 max-w-4xl px-6 md:px-10">
         <div className="mb-8 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div className="space-y-2">
-            <h1 className="text-4xl font-extrabold tracking-tight">Cognitive Profile</h1>
-            <p className="text-muted-foreground text-lg">
+            <h1 className="font-serif text-3xl tracking-tight text-foreground/90 md:text-4xl">Cognitive Profile</h1>
+            <p className="text-muted-foreground text-sm">
               Manage your AI's understanding of your personality, goals, and long-term vision.
             </p>
           </div>
@@ -180,10 +352,11 @@ export default function ProfilePage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8 h-12 shadow-sm rounded-lg">
-            <TabsTrigger value="personality" className="text-sm md:text-base font-semibold">Personality</TabsTrigger>
-            <TabsTrigger value="goals" className="text-sm md:text-base font-semibold">Goals</TabsTrigger>
-            <TabsTrigger value="vision" className="text-sm md:text-base font-semibold">Vision</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 mb-8 h-12 shadow-sm rounded-lg">
+            <TabsTrigger value="personality" className="text-sm font-semibold">Personality</TabsTrigger>
+            <TabsTrigger value="goals" className="text-sm font-semibold">Goals</TabsTrigger>
+            <TabsTrigger value="vision" className="text-sm font-semibold">Vision</TabsTrigger>
+            <TabsTrigger value="config" className="text-sm font-semibold">AI Config</TabsTrigger>
           </TabsList>
           <TabsContent value="personality">
             <ProfileSection 
@@ -209,9 +382,11 @@ export default function ProfilePage() {
               refreshKey={refreshKey}
             />
           </TabsContent>
+          <TabsContent value="config">
+            <AIConfigSection />
+          </TabsContent>
         </Tabs>
       </div>
     </>
   );
 }
-

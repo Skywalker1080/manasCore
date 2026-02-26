@@ -1,11 +1,42 @@
 from fastapi import APIRouter, HTTPException
 
 from backend.services.profile import ProfileService
-from backend.schemas.profile import ProfileUpdateRequest
+from backend.schemas.profile import ProfileUpdateRequest, ConfigResponse, ConfigUpdateRequest
+from backend.config import settings, mask_api_key, update_env_and_reload
 from logger.logger import get_logger
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 logger = get_logger()
+
+# --- Configuration Endpoints ---
+
+@router.get("/config", response_model=ConfigResponse)
+def get_config():
+    """Return current config values with the API key masked."""
+    return ConfigResponse(
+        gemini_api_key_masked=mask_api_key(settings.GEMINI_API_KEY),
+        ollama_base_url=settings.OLLAMA_BASE_URL,
+    )
+
+
+@router.put("/config")
+def update_config(request: ConfigUpdateRequest):
+    """Update GEMINI_API_KEY and/or OLLAMA_BASE_URL in .env and reload settings."""
+    try:
+        update_env_and_reload(
+            gemini_api_key=request.gemini_api_key,
+            ollama_base_url=request.ollama_base_url,
+        )
+        # Re-import to get the refreshed singleton
+        from backend.config import settings as refreshed
+        return {
+            "message": "Configuration updated successfully.",
+            "gemini_api_key_masked": mask_api_key(refreshed.GEMINI_API_KEY),
+            "ollama_base_url": refreshed.OLLAMA_BASE_URL,
+        }
+    except Exception as e:
+        logger.error(f"Error updating config: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update configuration.")
 
 # --- Onboarding Status ---
 
