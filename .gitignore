@@ -13,3 +13,4 @@ backend/data/
 .env
 data/
 logs/
+.agent

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, forwardRef, useImperativeHandle } from "react"
-import { ArrowUp } from "lucide-react"
+import { ArrowUp, Loader2, Brain, Sparkles } from "lucide-react"
 
 interface JournalInputProps {
   onSubmit: (entry: string) => void
@@ -57,7 +57,14 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
 
     return (
       <div className="mx-auto w-full max-w-2xl px-6 md:px-0">
-        <div className="relative rounded-xl border border-border/40 bg-secondary/30 backdrop-blur-sm transition-colors focus-within:border-border/70 focus-within:bg-secondary/50">
+        {/* Input container — glowing border animation while processing */}
+        <div
+          className={`relative rounded-xl border backdrop-blur-sm transition-all duration-500 ${
+            loading
+              ? "border-chart-1/40 bg-secondary/40 shadow-[0_0_20px_-5px] shadow-chart-1/10"
+              : "border-border/40 bg-secondary/30 focus-within:border-border/70 focus-within:bg-secondary/50"
+          }`}
+        >
           <textarea
             ref={textareaRef}
             value={value}
@@ -65,22 +72,53 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
             onKeyDown={handleKeyDown}
             onInput={handleInput}
             disabled={loading}
-            placeholder="What's on your mind tonight..."
+            placeholder={loading ? "Processing your entry..." : "What's on your mind tonight..."}
             rows={1}
-            className="w-full resize-none bg-transparent px-5 pt-4 pb-12 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none md:text-lg"
+            className="w-full resize-none bg-transparent px-5 pt-4 pb-12 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none disabled:cursor-not-allowed md:text-lg"
           />
           <div className="absolute right-3 bottom-3 flex items-center gap-2">
             <span className="text-xs tracking-wider text-muted-foreground/40 font-mono">
-              {value.length > 0 ? `${value.length}` : ""}
+              {!loading && value.length > 0 ? `${value.length}` : ""}
             </span>
             <button
               onClick={handleSubmit}
               disabled={!value.trim() || loading}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground/10 text-foreground/50 transition-all hover:bg-foreground/20 hover:text-foreground disabled:opacity-30 disabled:hover:bg-foreground/10 disabled:hover:text-foreground/50"
-              aria-label="Send journal entry"
+              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+                loading
+                  ? "bg-chart-1/15 text-chart-1/70"
+                  : "bg-foreground/10 text-foreground/50 hover:bg-foreground/20 hover:text-foreground disabled:opacity-30 disabled:hover:bg-foreground/10 disabled:hover:text-foreground/50"
+              }`}
+              aria-label={loading ? "Processing..." : "Send journal entry"}
             >
-              <ArrowUp className="h-4 w-4" />
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowUp className="h-4 w-4" />
+              )}
             </button>
+          </div>
+        </div>
+
+        {/* Processing status banner */}
+        <div
+          className={`overflow-hidden transition-all duration-500 ease-in-out ${
+            loading ? "mt-3 max-h-20 opacity-100" : "mt-0 max-h-0 opacity-0"
+          }`}
+        >
+          <div className="flex items-center gap-3 rounded-lg border border-chart-1/20 bg-chart-1/[0.04] px-4 py-3">
+            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+              <div className="absolute inset-0 animate-ping rounded-full bg-chart-1/20" />
+              <Brain className="relative h-4 w-4 text-chart-1/70" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium text-foreground/80 flex items-center gap-1.5">
+                Analyzing your thoughts
+                <Sparkles className="h-3 w-3 text-chart-4/60" />
+              </span>
+              <span className="text-xs text-muted-foreground/50">
+                Extracting emotions, sentiment & insights...
+              </span>
+            </div>
           </div>
         </div>
       </div>

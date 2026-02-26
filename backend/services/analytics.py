@@ -15,11 +15,6 @@ from sqlalchemy import func
 
 from backend.models.journal import JournalEntry
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _parse_range(range_str: str) -> datetime:
     """
     Convert a range string like '7d' or '30d' into a datetime cutoff.
@@ -30,11 +25,6 @@ def _parse_range(range_str: str) -> datetime:
     except (ValueError, AttributeError):
         days = 30
     return datetime.utcnow() - timedelta(days=days)
-
-
-# ---------------------------------------------------------------------------
-# Analytics Queries
-# ---------------------------------------------------------------------------
 
 def get_sentiment_over_time(
     db: Session, range_str: str = "30d"
@@ -47,7 +37,6 @@ def get_sentiment_over_time(
 
     # Use SQLite's date() function to extract the date part from datetime strings
     day_col = func.date(JournalEntry.date)
-
     rows = (
         db.query(
             day_col.label("day"),
