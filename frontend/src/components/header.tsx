@@ -2,7 +2,6 @@
 
 import { User, BarChart3 } from "lucide-react";
 import Link from "next/link";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Header() {
   return (
@@ -12,7 +11,6 @@ export function Header() {
         <span className="text-lg tracking-wide text-foreground/80">manasCore</span>
       </Link>
       <nav className="flex items-center gap-2">
-        <ThemeToggle />
         <Link
           href="/dashboard"
           className="flex h-9 w-9 items-center justify-center rounded-full border border-border/50 bg-secondary/40 text-foreground/60 transition-colors hover:bg-secondary hover:text-foreground"
@@ -31,4 +29,5 @@ export function Header() {
     </header>
   );
 }
+
 
