@@ -341,7 +341,7 @@ export default function ProfilePage() {
   return (
     <>
       {showOnboarding && <OnboardingFlow onComplete={handleOnboardingComplete} />}
-      <div className="mx-auto py-10 max-w-4xl px-6 md:px-10">
+      <div className="mx-auto pt-24 pb-10 max-w-4xl px-6 md:px-10">
         <div className="mb-8 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div className="space-y-2">
             <h1 className="font-serif text-3xl tracking-tight text-foreground/90 md:text-4xl">Cognitive Profile</h1>

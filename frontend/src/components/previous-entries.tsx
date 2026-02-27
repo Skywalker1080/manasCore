@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { format } from "date-fns"
-import { MoreHorizontal, Pencil, Trash2, Check, X, Sun, Cloud, CloudRain } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash2, Check, X, Sun, Cloud, CloudRain, Clock } from "lucide-react"
 import type { JournalEntry } from "@/lib/api"
 
 type Sentiment = "positive" | "neutral" | "negative"
@@ -116,12 +116,17 @@ export function PreviousEntries({ entries, onDelete, onEdit }: PreviousEntriesPr
                   {title}
                 </span>
 
-                {/* Emotion badge */}
-                {entry.emotion && (
+                {/* Emotion badge / Pending badge */}
+                {entry.pending ? (
+                  <span className="flex shrink-0 items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] tracking-wider text-amber-400/80">
+                    <Clock className="h-2.5 w-2.5" />
+                    Pending
+                  </span>
+                ) : entry.emotion ? (
                   <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground/50 bg-white/5 px-2 py-0.5 rounded-full">
                     {entry.emotion}
                   </span>
-                )}
+                ) : null}
 
                 {/* Date & time */}
                 <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground/35">
@@ -198,14 +203,16 @@ export function PreviousEntries({ entries, onDelete, onEdit }: PreviousEntriesPr
                       {entry.user_log}
                     </p>
 
-                    {/* Sentiment pill */}
-                    <span
-                      className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] tracking-wide ${cfg.pill}`}
-                      title={`Mood: ${cfg.label}`}
-                    >
-                      <SentimentIcon className={`h-2.5 w-2.5 ${cfg.iconColor}`} />
-                      {cfg.label}
-                    </span>
+                    {/* Sentiment pill (hidden for pending entries) */}
+                    {!entry.pending && (
+                      <span
+                        className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] tracking-wide ${cfg.pill}`}
+                        title={`Mood: ${cfg.label}`}
+                      >
+                        <SentimentIcon className={`h-2.5 w-2.5 ${cfg.iconColor}`} />
+                        {cfg.label}
+                      </span>
+                    )}
                   </>
                 )}
               </div>

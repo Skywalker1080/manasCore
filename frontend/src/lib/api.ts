@@ -15,6 +15,7 @@ export interface JournalEntry {
   tags: string[] | null;
   date: string;
   updated_at: string;
+  pending: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -134,6 +135,22 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error("Failed to update config");
+    return response.json();
+  },
+
+  // --- Processing Queue ---
+
+  async getQueueStatus(): Promise<{ pending_count: number }> {
+    const response = await fetch(`${API_BASE_URL}/entries/queue/status`);
+    if (!response.ok) throw new Error("Failed to fetch queue status");
+    return response.json();
+  },
+
+  async processQueue(): Promise<{ total: number; processed: number; failed: number }> {
+    const response = await fetch(`${API_BASE_URL}/entries/queue/process`, {
+      method: "POST",
+    });
+    if (!response.ok) throw new Error("Failed to process queue");
     return response.json();
   },
 };

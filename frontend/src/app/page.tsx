@@ -13,12 +13,20 @@ type Notification = {
   message: string
 } | null
 
+const TAGLINES = [
+  "Player One, ready?",
+  "Directed by you",
+  "The glitch in your matrix",
+  "What lingers within you?",
+]
+
 export default function Home() {
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [notification, setNotification] = useState<Notification>(null)
   const journalInputRef = useRef<JournalInputHandle>(null)
+  const [tagline] = useState(() => TAGLINES[Math.floor(Math.random() * TAGLINES.length)])
   const dismissTimer = useRef<ReturnType<typeof setTimeout>>(null)
 
   // Fetch entries on mount
@@ -52,9 +60,13 @@ export default function Home() {
     setLoading(true)
     setNotification(null)
     try {
-      await api.createEntry(content)
+      const created = await api.createEntry(content)
       fetchEntries() // Refresh list
-      setNotification({ type: "success", message: "Entry saved — emotions & insights extracted ✨" })
+      if (created.pending) {
+        setNotification({ type: "success", message: "Entry saved — AI is unavailable, it will be processed later 🕐" })
+      } else {
+        setNotification({ type: "success", message: "Entry saved — emotions & insights extracted ✨" })
+      }
     } catch (error) {
       console.error("Error creating entry:", error)
       setNotification({ type: "error", message: "Something went wrong. Please try again." })
@@ -133,11 +145,8 @@ export default function Home() {
           {/* Hero text */}
           <div className="mb-10 flex flex-col items-center gap-2 px-6 text-center">
             <h1 className="font-serif text-4xl leading-tight tracking-tight text-foreground/90 text-balance md:text-5xl">
-              What lingers within you?
+              {tagline}
             </h1>
-            <p className="max-w-md text-sm leading-relaxed tracking-wide text-muted-foreground/50">
-              A quiet space for the thoughts that need to exist somewhere.
-            </p>
           </div>
 
           {/* Prompt suggestions */}

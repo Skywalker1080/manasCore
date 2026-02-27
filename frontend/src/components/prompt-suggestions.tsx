@@ -16,18 +16,18 @@ export function PromptSuggestions({ onSelectPrompt }: PromptSuggestionsProps) {
       textColor: 'text-amber-200/70 hover:text-amber-100',
     },
     {
-      text: 'What moved your heart?',
-      icon: Heart,
-      color: 'from-rose-500/20 to-rose-600/10',
-      borderColor: 'border-rose-400/20 hover:border-rose-400/40',
-      textColor: 'text-rose-200/70 hover:text-rose-100',
-    },
-    {
       text: 'Where does your mind wander?',
       icon: Compass,
       color: 'from-cyan-500/20 to-cyan-600/10',
       borderColor: 'border-cyan-400/20 hover:border-cyan-400/40',
       textColor: 'text-cyan-200/70 hover:text-cyan-100',
+    },
+    {
+      text: 'How would you describe your current mood?',
+      icon: Heart,
+      color: 'from-rose-500/20 to-rose-600/10',
+      borderColor: 'border-rose-400/20 hover:border-rose-400/40',
+      textColor: 'text-rose-200/70 hover:text-rose-100',
     },
     {
       text: 'What did you learn tonight?',
