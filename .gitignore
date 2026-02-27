@@ -14,3 +14,5 @@ backend/data/
 data/
 logs/
 .agent
+.vscode
+docs/

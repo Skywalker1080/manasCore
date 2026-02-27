@@ -1,8 +1,0 @@
-{
-  "css.customData": [],
-  "css.lint.unknownAtRules": "ignore",
-  "tailwindCSS.experimental.classRegex": [],
-  "tailwindCSS.includeLanguages": {
-    "plaintext": "css"
-  }
-}
