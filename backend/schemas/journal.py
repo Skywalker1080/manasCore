@@ -25,6 +25,7 @@ class JournalEntryResponse(JournalEntryBase):
     summary: Optional[str] = None
     actionable_insight: Optional[str] = None
     tags: Optional[List[str]] = None
+    pending: bool = False
 
     @field_validator('tags', mode='before')
     @classmethod

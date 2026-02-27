@@ -153,4 +153,98 @@ export const api = {
     if (!response.ok) throw new Error("Failed to process queue");
     return response.json();
   },
+
+  // --- Chat ---
+
+  async sendChatMessage(
+    message: string,
+    history: ChatHistoryMessage[] = []
+  ): Promise<ChatResponse> {
+    const response = await fetch(`${API_BASE_URL}/chat/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, history }),
+    });
+    if (!response.ok) throw new Error("Failed to send chat message");
+    return response.json();
+  },
+
+  async *streamChatMessage(
+    message: string,
+    history: ChatHistoryMessage[] = []
+  ): AsyncGenerator<ChatStreamEvent> {
+    const response = await fetch(`${API_BASE_URL}/chat/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, history }),
+    });
+
+    if (!response.ok) throw new Error("Failed to start chat stream");
+    if (!response.body) throw new Error("No response body for streaming");
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      // Keep the last potentially incomplete line in the buffer
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("data: ")) {
+          try {
+            const data = JSON.parse(trimmed.slice(6));
+            yield data as ChatStreamEvent;
+          } catch {
+            // Skip malformed events
+          }
+        }
+      }
+    }
+
+    // Process any remaining buffer
+    if (buffer.trim().startsWith("data: ")) {
+      try {
+        const data = JSON.parse(buffer.trim().slice(6));
+        yield data as ChatStreamEvent;
+      } catch {
+        // Skip
+      }
+    }
+  },
 };
+
+// ---------------------------------------------------------------------------
+// Chat types
+// ---------------------------------------------------------------------------
+
+export interface ChatHistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatSource {
+  entry_id: number;
+  summary: string | null;
+  date: string | null;
+  emotion: string | null;
+  mode: string | null;
+}
+
+export interface ChatResponse {
+  message: string;
+  sources: ChatSource[];
+}
+
+export type ChatStreamEvent =
+  | { type: "token"; content: string }
+  | { type: "sources"; sources: ChatSource[] }
+  | { type: "done" }
+  | { type: "error"; content: string };
+

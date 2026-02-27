@@ -5,6 +5,7 @@ from backend.database import get_db
 from backend.models.journal import JournalEntry
 from backend.schemas.journal import JournalEntryCreate, JournalEntryResponse
 from backend.agent.agents import Agent
+from backend.services.queue import process_pending_entries
 from logger.logger import get_logger
 import json
 from sqlalchemy import text
@@ -18,38 +19,52 @@ def create_entry(entry: JournalEntryCreate, db: Session = Depends(get_db)):
     logger.info("Received request to create a new journal entry")
     try:
         agent = Agent()
-        
-        logger.info("Starting AI metadata extraction...")
-        extraction = agent.extract(entry)
-        
-        logger.info("Saving metadata to journal_entries table...")
+
+        # --- Attempt AI metadata extraction ---
+        extraction = None
+        ai_failed = False
+        try:
+            logger.info("Starting AI metadata extraction...")
+            extraction = agent.extract(entry)
+        except Exception as ai_err:
+            logger.warning(f"All AI providers failed for extraction: {ai_err}. Saving entry as pending.")
+            ai_failed = True
+
+        # --- Save the entry (with or without AI metadata) ---
+        logger.info("Saving entry to journal_entries table...")
         db_entry = JournalEntry(
             user_log=entry.user_log,
-            emotion=extraction.emotion,
-            sentiment=extraction.sentiment,
-            mode=extraction.mode,
-            summary=extraction.summary,
-            actionable_insight=extraction.actionable_insight,
-            tags=",".join(extraction.tags) if extraction.tags else None
+            emotion=extraction.emotion if extraction else None,
+            sentiment=extraction.sentiment if extraction else None,
+            mode=extraction.mode if extraction else None,
+            summary=extraction.summary if extraction else None,
+            actionable_insight=extraction.actionable_insight if extraction else None,
+            tags=(",".join(extraction.tags) if extraction and extraction.tags else None),
+            pending=ai_failed,
         )
         db.add(db_entry)
         db.commit()
         db.refresh(db_entry)
-        logger.info(f"Journal metadata saved with ID: {db_entry.id}")
-        
-        if extraction.summary:
-            logger.info("Starting AI embedding generation for summary...")
-            vector = agent.embedder(extraction.summary)
-            serialized_vector = serialize_embedding(vector)
-            
-            logger.info(f"Saving embedding to vec_entries for ID: {db_entry.id}...")
-            db.execute(
-                text("INSERT INTO vec_entries(entry_id, embedding) VALUES (:id, :vec)"),
-                {"id": db_entry.id, "vec": serialized_vector}
-            )
-            db.commit()
-            logger.info("Vector embedding saved successfully")
-            
+        logger.info(f"Journal entry saved with ID: {db_entry.id} (pending={ai_failed})")
+
+        # --- Embedding (only when AI succeeded and we have a summary) ---
+        if extraction and extraction.summary:
+            try:
+                logger.info("Starting AI embedding generation for summary...")
+                vector = agent.embedder(extraction.summary)
+                serialized_vector = serialize_embedding(vector)
+
+                logger.info(f"Saving embedding to vec_entries for ID: {db_entry.id}...")
+                db.execute(
+                    text("INSERT INTO vec_entries(entry_id, embedding) VALUES (:id, :vec)"),
+                    {"id": db_entry.id, "vec": serialized_vector}
+                )
+                db.commit()
+                logger.info("Vector embedding saved successfully")
+            except Exception as emb_err:
+                # Embedding failure is non-critical; the entry is already saved.
+                logger.warning(f"Embedding generation failed (non-critical): {emb_err}")
+
         return db_entry
     except Exception as e:
         logger.error(f"Error creating journal entry: {str(e)}")
@@ -63,6 +78,19 @@ def create_entry(entry: JournalEntryCreate, db: Session = Depends(get_db)):
 def read_entries(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     logger.info(f"Reading journal entries with skip={skip} and limit={limit}")
     return db.query(JournalEntry).order_by(JournalEntry.date.desc()).offset(skip).limit(limit).all()
+
+@router.get("/queue/status")
+def queue_status(db: Session = Depends(get_db)):
+    """Returns the count of pending (unprocessed) entries."""
+    count = db.query(JournalEntry).filter(JournalEntry.pending == True).count()
+    return {"pending_count": count}
+
+@router.post("/queue/process")
+def process_queue(db: Session = Depends(get_db)):
+    """Manually trigger reprocessing of all pending entries."""
+    logger.info("Manual queue processing triggered via API")
+    result = process_pending_entries(db)
+    return result
 
 @router.get("/{entry_id}", response_model=JournalEntryResponse)
 def read_entry(entry_id: int, db: Session = Depends(get_db)):

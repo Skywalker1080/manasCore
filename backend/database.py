@@ -37,3 +37,19 @@ def create_vec_table():
             ")"
         ))
         conn.commit()
+
+
+def migrate_db():
+    """Lightweight migration: add columns that may not exist in older schemas."""
+    from sqlalchemy import text, inspect as sa_inspect
+    with engine.connect() as conn:
+        # Check existing columns in journal_entries
+        inspector = sa_inspect(engine)
+        columns = [c["name"] for c in inspector.get_columns("journal_entries")]
+
+        if "pending" not in columns:
+            conn.execute(text(
+                "ALTER TABLE journal_entries ADD COLUMN pending BOOLEAN NOT NULL DEFAULT 0"
+            ))
+            conn.commit()
+

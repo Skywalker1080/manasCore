@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean
 from datetime import datetime
 from ..database import Base
 
@@ -14,4 +14,5 @@ class JournalEntry(Base):
     summary = Column(String, nullable=True)
     actionable_insight = Column(String, nullable=True)
     tags = Column(String, nullable=True)
+    pending = Column(Boolean, default=False, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

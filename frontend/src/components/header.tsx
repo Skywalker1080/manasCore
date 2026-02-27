@@ -1,6 +1,6 @@
 "use client";
 
-import { User, BarChart3 } from "lucide-react";
+import { User, BarChart3, MessageCircle } from "lucide-react";
 import Link from "next/link";
 
 export function Header() {
@@ -17,6 +17,13 @@ export function Header() {
           aria-label="Dashboard"
         >
           <BarChart3 className="h-4 w-4" />
+        </Link>
+        <Link
+          href="/chat"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border/50 bg-secondary/40 text-foreground/60 transition-colors hover:bg-secondary hover:text-foreground"
+          aria-label="Chat"
+        >
+          <MessageCircle className="h-4 w-4" />
         </Link>
         <Link
           href="/profile"
