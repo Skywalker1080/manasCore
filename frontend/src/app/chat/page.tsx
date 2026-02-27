@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Sparkles, MessageCircle, Trash2 } from "lucide-react";
+import { Send, Sparkles, MessageCircle, Trash2, Activity, Target, BookOpen, Lightbulb, Flame, Zap, Route, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage, TypingIndicator } from "@/components/chat-message";
@@ -26,23 +26,67 @@ const SUGGESTIONS = [
   {
     label: "Emotional patterns",
     prompt: "What are my emotional patterns this week?",
-    icon: "🌊",
+    icon: Activity,
+    color: 'from-rose-500/20 to-rose-600/10',
+    borderColor: 'border-rose-400/20 hover:border-rose-400/40',
+    textColor: 'text-rose-200/70 hover:text-rose-100',
   },
   {
     label: "Goal alignment",
     prompt: "Am I aligned with my goals based on my recent entries?",
-    icon: "🎯",
+    icon: Target,
+    color: 'from-cyan-500/20 to-cyan-600/10',
+    borderColor: 'border-cyan-400/20 hover:border-cyan-400/40',
+    textColor: 'text-cyan-200/70 hover:text-cyan-100',
   },
   {
     label: "Summarize reflections",
     prompt: "Summarize my recent reflections and draw insights.",
-    icon: "📖",
+    icon: BookOpen,
+    color: 'from-amber-500/20 to-amber-600/10',
+    borderColor: 'border-amber-400/20 hover:border-amber-400/40',
+    textColor: 'text-amber-200/70 hover:text-amber-100',
   },
   {
-    label: "What should I focus on?",
+    label: "What to focus on?",
     prompt:
       "Based on my journal entries and goals, what should I focus on today?",
-    icon: "🔮",
+    icon: Lightbulb,
+    color: 'from-violet-500/20 to-violet-600/10',
+    borderColor: 'border-violet-400/20 hover:border-violet-400/40',
+    textColor: 'text-violet-200/70 hover:text-violet-100',
+  },
+  {
+    label: "Main villain",
+    prompt: "Who is the 'Main Villain' in my logs this month?",
+    icon: Flame,
+    color: 'from-orange-500/20 to-orange-600/10',
+    borderColor: 'border-orange-400/20 hover:border-orange-400/40',
+    textColor: 'text-orange-200/70 hover:text-orange-100',
+  },
+  {
+    label: "Emotional triggers",
+    prompt: "Identify my top three emotional triggers.",
+    icon: Zap,
+    color: 'from-pink-500/20 to-pink-600/10',
+    borderColor: 'border-pink-400/20 hover:border-pink-400/40',
+    textColor: 'text-pink-200/70 hover:text-pink-100',
+  },
+  {
+    label: "Character arc",
+    prompt: "Summarize my 'Character Arc' across all my entries.",
+    icon: Route,
+    color: 'from-emerald-500/20 to-emerald-600/10',
+    borderColor: 'border-emerald-400/20 hover:border-emerald-400/40',
+    textColor: 'text-emerald-200/70 hover:text-emerald-100',
+  },
+  {
+    label: "Day 1 vs Today",
+    prompt: "Compare my 'Day 1' mindset to who I am today.",
+    icon: History,
+    color: 'from-blue-500/20 to-blue-600/10',
+    borderColor: 'border-blue-400/20 hover:border-blue-400/40',
+    textColor: 'text-blue-200/70 hover:text-blue-100',
   },
 ];
 
@@ -135,7 +179,7 @@ export default function ChatPage() {
                       ...m,
                       content:
                         m.content ||
-                        "⚠️ Something went wrong. Please try again.",
+                        "Something went wrong. Please try again.",
                       isStreaming: false,
                     }
                   : m
@@ -159,7 +203,7 @@ export default function ChatPage() {
                   ...m,
                   content:
                     m.content ||
-                    "⚠️ Failed to connect to the AI. Is the backend running?",
+                    "Failed to connect to the AI. Is the backend running?",
                   isStreaming: false,
                 }
               : m
@@ -239,19 +283,27 @@ export default function ChatPage() {
                 </p>
               </div>
 
-              <div className="grid w-full max-w-md grid-cols-2 gap-2.5">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s.label}
-                    onClick={() => handleSend(s.prompt)}
-                    className="group flex flex-col gap-1.5 rounded-xl border border-border/20 bg-card/30 px-4 py-3 text-left transition-all duration-200 hover:bg-card/60 hover:border-border/40 hover:shadow-lg hover:shadow-emerald-500/[0.03]"
-                  >
-                    <span className="text-base">{s.icon}</span>
-                    <span className="text-xs font-medium text-foreground/70 group-hover:text-foreground/90 transition-colors">
-                      {s.label}
-                    </span>
-                  </button>
-                ))}
+              <div className="flex flex-wrap justify-center gap-2.5 max-w-2xl mt-4 px-2">
+                {SUGGESTIONS.map((s, index) => {
+                  const IconComponent = s.icon;
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleSend(s.prompt)}
+                      className={`group relative overflow-hidden rounded-lg border transition-all duration-300 px-3 py-2 backdrop-blur-sm ${s.borderColor}`}
+                    >
+                      <div
+                        className={`absolute inset-0 bg-gradient-to-br ${s.color} transition-opacity duration-300`}
+                      />
+                      <div className="relative z-10 flex items-center gap-2">
+                        <IconComponent className="h-3.5 w-3.5 shrink-0 transition-transform duration-300 group-hover:scale-110" />
+                        <span className={`text-xs transition-colors duration-300 ${s.textColor} font-mono whitespace-nowrap`}>
+                          {s.label}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ) : (
