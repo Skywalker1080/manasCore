@@ -2,13 +2,24 @@
 
 import { User, BarChart3, MessageCircle } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
+import logo from "../../public/manasCore.png";
 
 export function Header() {
   return (
     <header className="flex items-center justify-between px-6 py-5 md:px-10 absolute top-0 left-0 right-0 z-50">
-      <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-        <div className="h-2 w-2 rounded-full bg-foreground/60" />
-        <span className="text-lg tracking-wide text-foreground/80">manasCore</span>
+      <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
+        <div className="relative h-10 w-10">
+          <Image
+            src={logo}
+            alt="manasCore Logo"
+            width={40}
+            height={40}
+            className="object-contain"
+            priority
+          />
+        </div>
+        <span className="text-xl font-serif tracking-tight text-foreground/90">manasCore</span>
       </Link>
       <nav className="flex items-center gap-2">
         <Link

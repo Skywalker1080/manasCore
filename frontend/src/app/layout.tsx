@@ -18,6 +18,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "manasCore - Your Inner Journal",
   description: "A reflective AI journaling experience for solitude and self-discovery.",
+  icons: {
+    icon: "/manasCore.png",
+    shortcut: "/manasCore.png",
+    apple: "/manasCore.png",
+  },
 };
 
 export const viewport: Viewport = {

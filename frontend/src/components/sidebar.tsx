@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
+import logo from "../../public/manasCore.png";
 import { BookOpen, BarChart3, User } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -17,11 +19,19 @@ export function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-[220px] flex-col border-r border-sidebar-border bg-sidebar">
       {/* Brand */}
-      <div className="flex items-center gap-2.5 px-5 py-6">
-        <div className="h-2 w-2 rounded-full bg-sidebar-foreground/60" />
+      <div className="flex items-center gap-3 px-5 py-6">
+        <div className="relative h-8 w-8">
+          <Image
+            src={logo}
+            alt="manasCore Logo"
+            width={32}
+            height={32}
+            className="object-contain"
+          />
+        </div>
         <Link
           href="/"
-          className="text-lg tracking-wide text-sidebar-foreground/80 transition-opacity hover:opacity-80"
+          className="text-xl font-serif tracking-tight text-sidebar-foreground/90 transition-opacity hover:opacity-80"
         >
           manasCore
         </Link>
