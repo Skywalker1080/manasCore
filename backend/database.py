@@ -53,3 +53,9 @@ def migrate_db():
             ))
             conn.commit()
 
+        if "title" not in columns:
+            conn.execute(text(
+                "ALTER TABLE journal_entries ADD COLUMN title TEXT DEFAULT NULL"
+            ))
+            conn.commit()
+

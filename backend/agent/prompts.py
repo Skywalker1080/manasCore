@@ -20,8 +20,8 @@ class Prompt(BaseModel):
 
 JOURNAL_ANALYSIS_PROMPT = Prompt(
     name="journal_analysis",
-    version="1.1.2",
-    description="Analyzes journal entries for emotion, sentiment, mode, summary, actionable insight and tags.",
+    version="1.2.0",
+    description="Analyzes journal entries for title, emotion, sentiment, mode, summary, actionable insight and tags.",
     metadata={
         "categories": ["Work", "Personal", "Health", "Relationships", "Finance", "Hobbies", "Travel", "Education"],
         "emotions": ["Happy", "Sad", "Longing", "Reflective"],
@@ -31,6 +31,7 @@ JOURNAL_ANALYSIS_PROMPT = Prompt(
         You are an AI Cognitive Journaling Assistant. Analyze the user's journal entry and respond ONLY with a valid JSON object. Do not provide any conversational text, explanations, or formatting outside of the JSON structure.
 
         {{
+        "title": [A very short title for the journal entry, 2-5 words max, capturing the core theme],
         "sentiment": [1: Positive, -1: Negative, 0: Neutral],
         "mode": [Work, Personal, Health, Relationships, Finance, Hobbies, Travel, Education],
         "emotion": [Primary emotion, e.g., Conflicted, Longing, Happy, etc.],

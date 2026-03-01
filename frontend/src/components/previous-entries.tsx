@@ -99,7 +99,7 @@ export function PreviousEntries({ entries, onDelete, onEdit }: PreviousEntriesPr
           const sentiment = deriveSentimentFromScore(entry.sentiment)
           const cfg = sentimentConfig[sentiment]
           const SentimentIcon = cfg.icon
-          const title = deriveTitle(entry.user_log)
+          const title = entry.title || deriveTitle(entry.user_log)
           const isEditing = editingId === entry.id
           const isMenuOpen = openMenu === entry.id
           const timestamp = new Date(entry.date)

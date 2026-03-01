@@ -7,6 +7,7 @@ const API_BASE_URL = "http://localhost:8000";
 export interface JournalEntry {
   id: number;
   user_log: string;
+  title: string | null;
   emotion: string | null;
   sentiment: number | null;
   mode: string | null;

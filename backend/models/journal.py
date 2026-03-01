@@ -8,6 +8,7 @@ class JournalEntry(Base):
     id = Column(Integer, primary_key=True, index=True)
     date = Column(DateTime, default=datetime.utcnow)
     user_log = Column(String, nullable=False)
+    title = Column(String, nullable=True)
     emotion = Column(String, nullable=True)
     sentiment = Column(Integer, nullable=True)
     mode = Column(String, nullable=True)

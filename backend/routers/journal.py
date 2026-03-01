@@ -34,6 +34,7 @@ def create_entry(entry: JournalEntryCreate, db: Session = Depends(get_db)):
         logger.info("Saving entry to journal_entries table...")
         db_entry = JournalEntry(
             user_log=entry.user_log,
+            title=extraction.title if extraction else None,
             emotion=extraction.emotion if extraction else None,
             sentiment=extraction.sentiment if extraction else None,
             mode=extraction.mode if extraction else None,

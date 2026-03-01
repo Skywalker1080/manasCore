@@ -45,6 +45,7 @@ def process_pending_entries(db: Session) -> dict:
             from backend.schemas.journal import JournalEntryCreate
             extraction = agent.extract(JournalEntryCreate(user_log=entry.user_log))
 
+            entry.title = extraction.title
             entry.emotion = extraction.emotion
             entry.sentiment = extraction.sentiment
             entry.mode = extraction.mode

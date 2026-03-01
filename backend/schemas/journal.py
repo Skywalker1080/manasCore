@@ -19,6 +19,7 @@ class JournalEntryResponse(JournalEntryBase):
     id: int
     date: datetime
     updated_at: datetime
+    title: Optional[str] = None
     emotion: Optional[str] = None
     sentiment: Optional[SentimentLiteral] = None
     mode: Optional[ModeLiteral] = None
@@ -40,6 +41,7 @@ class ExtractorResponse(BaseModel):
     """
     Model for the AI Agent's raw extraction output.
     """
+    title: Optional[str] = None
     sentiment: Optional[SentimentLiteral] = None
     mode: Optional[ModeLiteral] = None
     emotion: Optional[str] = None
