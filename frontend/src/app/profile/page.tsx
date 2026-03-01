@@ -98,7 +98,7 @@ function ProfileSection({ section, title, description, refreshKey }: { section: 
     <Card className="border-border">
       <CardHeader className="flex flex-row items-start justify-between space-y-0.5 pb-4">
         <div>
-          <CardTitle className="text-2xl">{title}</CardTitle>
+          <CardTitle className="font-serif text-xl tracking-tight text-foreground/90 md:text-2xl">{title}</CardTitle>
           <CardDescription className="mt-1 flex items-center gap-2">
             {description}
           </CardDescription>
@@ -145,9 +145,16 @@ function ProfileSection({ section, title, description, refreshKey }: { section: 
               dangerouslySetInnerHTML={{ __html: htmlContent }}
             />
             <div className="flex justify-end">
-               <Button onClick={() => setIsEditing(true)}>
-                Edit {title}
-              </Button>
+              <button
+                onClick={() => setIsEditing(true)}
+                type="button"
+                className="group relative overflow-hidden rounded-lg border border-amber-400/20 px-3 py-2 backdrop-blur-sm transition-all duration-300 hover:border-amber-400/40"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-amber-600/10 transition-opacity duration-300" />
+                <span className="relative z-10 text-xs font-mono whitespace-nowrap transition-colors duration-300 text-amber-200/70 group-hover:text-amber-100">
+                  Edit {title}
+                </span>
+              </button>
             </div>
           </div>
         )}
@@ -304,9 +311,17 @@ function AIConfigSection() {
 
             {/* Save button */}
             <div className="flex justify-end pt-2">
-              <Button onClick={handleSave} disabled={isSaving}>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                type="button"
+                className="group relative overflow-hidden rounded-lg border border-amber-400/20 px-3 py-2 backdrop-blur-sm transition-all duration-300 hover:border-amber-400/40 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-amber-600/10 transition-opacity duration-300" />
+                <span className="relative z-10 text-xs font-mono whitespace-nowrap transition-colors duration-300 text-amber-200/70 group-hover:text-amber-100">
                 {isSaving ? "Saving..." : "Save Configuration"}
-              </Button>
+                </span>
+              </button>
             </div>
           </div>
         )}
@@ -349,17 +364,24 @@ export default function ProfilePage() {
               Manage your AI's understanding of your personality, goals, and long-term vision.
             </p>
           </div>
-          <Button variant="outline" onClick={handleRetakeOnboarding} className="shrink-0">
-            Retake Onboarding
-          </Button>
+          <button
+            onClick={handleRetakeOnboarding}
+            type="button"
+            className="group relative shrink-0 overflow-hidden rounded-lg border border-blue-400/20 px-3 py-2 backdrop-blur-sm transition-all duration-300 hover:border-blue-400/40"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-blue-600/10 transition-opacity duration-300" />
+            <span className="relative z-10 text-xs font-mono whitespace-nowrap transition-colors duration-300 text-blue-200/70 group-hover:text-blue-100">
+              Retake Onboarding
+            </span>
+          </button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-8 h-12 shadow-sm rounded-lg">
-            <TabsTrigger value="personality" className="text-sm font-semibold">Personality</TabsTrigger>
-            <TabsTrigger value="goals" className="text-sm font-semibold">Goals</TabsTrigger>
-            <TabsTrigger value="vision" className="text-sm font-semibold">Vision</TabsTrigger>
-            <TabsTrigger value="config" className="text-sm font-semibold">AI Config</TabsTrigger>
+            <TabsTrigger value="personality" className="text-xs font-medium">Personality</TabsTrigger>
+            <TabsTrigger value="goals" className="text-xs font-medium">Goals</TabsTrigger>
+            <TabsTrigger value="vision" className="text-xs font-medium">Vision</TabsTrigger>
+            <TabsTrigger value="config" className="text-xs font-medium">AI Config</TabsTrigger>
           </TabsList>
           <TabsContent value="personality">
             <ProfileSection 
