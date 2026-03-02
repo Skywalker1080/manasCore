@@ -33,11 +33,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [generatedVision, setGeneratedVision] = useState("");
   const [visionApproved, setVisionApproved] = useState(false);
 
-  const [goalsAnswers, setGoalsAnswers] = useState({
-    q1: "",
-    q2: "",
-    q3: "",
-  });
+  const [goals, setGoals] = useState("");
 
   const progress = ((step + 1) / TOTAL_STEPS) * 100;
 
@@ -70,6 +66,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
    * Calls the backend to flip the anti-vision into a positive vision.
    * Combines both anti-vision answers into a single block of text.
    */
+  const hasAntiVision = () => {
+    return visionAnswers.q1.trim() !== "" || visionAnswers.q2.trim() !== "";
+  };
+
   const flipVision = async () => {
     const antiVisionText = [
       visionAnswers.q1.trim(),
@@ -79,7 +79,6 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       .join("\n\n");
 
     if (!antiVisionText) {
-      setError("Please fill in at least one anti-vision question before continuing.");
       return false;
     }
 
@@ -110,10 +109,20 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const handleNext = async () => {
     setError(null);
 
-    // When leaving the Anti-Vision step (step 2), trigger the AI flip
+    // When leaving the Anti-Vision step (step 2)
     if (step === 2) {
-      const success = await flipVision();
-      if (!success) return;
+      if (hasAntiVision()) {
+        // Anti-vision filled in → call the AI to flip it
+        const success = await flipVision();
+        if (!success) return;
+        // Proceed to step 3 (Vision review)
+        setStep(3);
+      } else {
+        // Anti-vision left blank → skip AI call, jump straight to Goals
+        setGeneratedVision("");
+        setStep(4);
+      }
+      return;
     }
 
     setStep((prev) => Math.min(prev + 1, TOTAL_STEPS - 1));
@@ -121,6 +130,11 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const handleBack = () => {
     setError(null);
+    // If on Goals (step 4) and anti-vision was skipped, go back to step 2
+    if (step === 4 && !hasAntiVision()) {
+      setStep(2);
+      return;
+    }
     setStep((prev) => Math.max(prev - 1, 0));
   };
 
@@ -133,36 +147,38 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       await saveProfile("personality", personalityMd);
 
       // Build and save vision.md with anti-vision + AI-generated vision
-      const visionMd = [
-        "# Vision",
-        "",
-        "## Anti-Vision",
-        "",
-        "### What I dislike, complain about, and want to avoid:",
-        visionAnswers.q1.trim() || "_Not answered_",
-        "",
-        "### Worst-case 5–10+ years if nothing changes:",
-        visionAnswers.q2.trim() || "_Not answered_",
-        "",
-        "## My Vision",
-        "",
-        generatedVision.trim() || "_No vision generated_",
-        "",
-      ].join("\n");
+      const visionParts: string[] = ["# Vision", ""];
+
+      if (hasAntiVision()) {
+        visionParts.push(
+          "## Anti-Vision",
+          "",
+          "### What I dislike, complain about, and want to avoid:",
+          visionAnswers.q1.trim() || "_Not answered_",
+          "",
+          "### Worst-case 5–10+ years if nothing changes:",
+          visionAnswers.q2.trim() || "_Not answered_",
+          ""
+        );
+        visionParts.push(
+          "## My Vision",
+          "",
+          generatedVision.trim() || "_No vision generated_",
+          ""
+        );
+      } else {
+        visionParts.push("_No anti-vision or vision defined yet. You can add one from the Profile page._", "");
+      }
+
+      const visionMd = visionParts.join("\n");
       await saveProfile("vision", visionMd);
 
       // Build and save goals.md from goals questionnaire
       const goalsMd = [
         "# Goals",
         "",
-        "### What is the single most important thing you want to achieve this year?",
-        goalsAnswers.q1.trim() || "_Not answered_",
-        "",
-        "### What does a successful week look like for you?",
-        goalsAnswers.q2.trim() || "_Not answered_",
-        "",
-        "### What skills or areas do you want to develop?",
-        goalsAnswers.q3.trim() || "_Not answered_",
+        "### What are my top 3-5 big goals (1-10 year horizon) that pull me toward this vision?",
+        goals.trim() || "_Not answered_",
         "",
       ].join("\n");
       await saveProfile("goals", goalsMd);
@@ -322,7 +338,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground italic">
-                    ✏️ Feel free to edit, add, or remove any bullet points. This is <strong>your</strong> vision — make it resonate.
+                    Feel free to edit, add, or remove any bullet points. This is <strong>your</strong> vision — make it resonate.
                   </p>
                 </>
               )}
@@ -333,44 +349,17 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           {step === 4 && (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
-                <Label htmlFor="goals-q1" className="text-sm font-medium">
-                  What is the single most important thing you want to achieve this year?
+                <Label htmlFor="goals-input" className="text-sm font-medium">
+                  What are your top 3-5 big goals (1-10 year horizon) that pull you toward this vision?
                 </Label>
                 <Textarea
-                  id="goals-q1"
-                  value={goalsAnswers.q1}
-                  onChange={(e) => setGoalsAnswers({ ...goalsAnswers, q1: e.target.value })}
-                  className="min-h-[80px] text-sm"
-                  placeholder="Your #1 priority..."
+                  id="goals-input"
+                  value={goals}
+                  onChange={(e) => setGoals(e.target.value)}
+                  className="min-h-[250px] text-sm leading-relaxed"
+                  placeholder={`Make them specific, outcome-focused, and exciting—e.g., "Build a business generating $X/month in income," "Achieve [fitness milestone]," "Deepen my primary relationship through [action]." Reverse-engineer from vision: what milestones close the gap from current to ideal?`}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="goals-q2" className="text-sm font-medium">
-                  What does a successful week look like for you?
-                </Label>
-                <Textarea
-                  id="goals-q2"
-                  value={goalsAnswers.q2}
-                  onChange={(e) => setGoalsAnswers({ ...goalsAnswers, q2: e.target.value })}
-                  className="min-h-[80px] text-sm"
-                  placeholder="Describe a great week..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="goals-q3" className="text-sm font-medium">
-                  What skills or areas do you want to develop?
-                </Label>
-                <Textarea
-                  id="goals-q3"
-                  value={goalsAnswers.q3}
-                  onChange={(e) => setGoalsAnswers({ ...goalsAnswers, q3: e.target.value })}
-                  className="min-h-[80px] text-sm"
-                  placeholder="Skills, habits, knowledge..."
-                />
-              </div>
-              <p className="text-xs text-muted-foreground italic">
-                ⚠️ These are placeholder questions. The final questionnaire will be updated soon.
-              </p>
             </div>
           )}
 
