@@ -75,7 +75,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         "",
         "## Anti-Vision Responses",
         "",
-        "### What does your worst-case future look like in 5 years?",
+        "### Write down everything you hate, dislike, or complain about in your current life, including habits, relationships, work, health, or routines from your past that you never want to experience again.",
         visionAnswers.q1.trim() || "_Not answered_",
         "",
         "### What habits or patterns would lead you there?",

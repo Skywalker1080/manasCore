@@ -4,11 +4,11 @@
   "description": "Unified entry point for AI Journal frontend and backend",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev --prefix frontend\" \"python main.py\"",
+    "dev": "concurrently \"npm run dev --prefix frontend\" \".venv\\\\Scripts\\\\python main.py\"",
     "build": "npm run build --prefix frontend",
-    "start": "concurrently \"npm start --prefix frontend\" \"uvicorn backend.main:app --host 0.0.0.0 --port 8000\"",
+    "start": "concurrently \"npm start --prefix frontend\" \".venv\\\\Scripts\\\\uvicorn backend.main:app --host 0.0.0.0 --port 8000\"",
     "install:all": "uv sync && npm install --prefix frontend && npm install",
-    "backend": "python main.py",
+    "backend": ".venv\\Scripts\\python main.py",
     "frontend": "npm run dev --prefix frontend"
   },
   "devDependencies": {
