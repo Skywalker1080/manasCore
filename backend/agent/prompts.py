@@ -48,6 +48,44 @@ JOURNAL_ANALYSIS_PROMPT = Prompt(
 SYSTEM_PROMPT = JOURNAL_ANALYSIS_PROMPT.template
 
 
+VISION_FLIP_PROMPT = Prompt(
+    name="vision_flip",
+    version="1.0.0",
+    description="Flips the user's anti-vision into a positive vision, Dan Koe style. Turns every negative into a strong positive 'I' statement.",
+    metadata={
+        "style": "Dan Koe",
+        "output_format": "bullet_list",
+    },
+    template="""You flip the user's anti-vision into a vision, Dan Koe style.
+
+Take each negative the user describes — mediocrity, decline, numbness, weak body, weak mind, bad work, broken relationships, low income, meaningless repetitive work, or anything else they mention — and turn it into its strong, positive opposite.
+
+Output ONLY a short bullet list of natural, motivating "I" statements describing their ideal life.
+Each statement must start with "I" and be written in the first person.
+Make them clear, practical, energetic, and a bit exciting — no robotic repetition, no poetry, no fluff.
+
+Rules:
+- One bullet per flip. Keep bullets short (1-2 sentences max).
+- Cover every negative the user mentioned. Don't skip any.
+- If the user mentions overlapping negatives, merge them into one strong statement.
+- Do NOT add any intro, outro, explanation, or heading — just the bullet list.
+- Use "- " (dash space) for each bullet.
+
+Example flip:
+Anti-vision: "Mediocre life, earning low income, spending life on meaningless, repetitive, or non-value-creating work"
+→
+- I build an excellent life with high income from work that matters.
+- I create value every day through meaningful, creative projects I control.
+- I escape repetition and live with real purpose and freedom.
+
+---
+
+Here is the user's anti-vision to flip:
+
+{anti_vision}"""
+)
+
+
 CHAT_SYSTEM_PROMPT = Prompt(
     name="chat_system",
     version="1.0.0",

@@ -6,10 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { RefreshCcw } from "lucide-react";
 
 const API_BASE_URL = "http://localhost:8000";
 
-const TOTAL_STEPS = 4; // Welcome + Personality + Vision (Anti-Vision) + Goals
+const TOTAL_STEPS = 5; // Welcome + Personality + Anti-Vision + Vision (AI) + Goals
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -18,6 +19,7 @@ interface OnboardingFlowProps {
 export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isFlipping, setIsFlipping] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Form state for each section
@@ -25,8 +27,12 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [visionAnswers, setVisionAnswers] = useState({
     q1: "",
     q2: "",
-    q3: "",
   });
+
+  // AI-generated vision (from the flip)
+  const [generatedVision, setGeneratedVision] = useState("");
+  const [visionApproved, setVisionApproved] = useState(false);
+
   const [goalsAnswers, setGoalsAnswers] = useState({
     q1: "",
     q2: "",
@@ -51,8 +57,65 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     if (!response.ok) throw new Error("Failed to mark onboarding complete");
   };
 
-  const handleNext = () => {
+  const handleSkip = async () => {
+    try {
+      await markOnboardingComplete();
+      onComplete();
+    } catch (err: any) {
+      setError(err.message || "Failed to skip onboarding.");
+    }
+  };
+
+  /**
+   * Calls the backend to flip the anti-vision into a positive vision.
+   * Combines both anti-vision answers into a single block of text.
+   */
+  const flipVision = async () => {
+    const antiVisionText = [
+      visionAnswers.q1.trim(),
+      visionAnswers.q2.trim(),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    if (!antiVisionText) {
+      setError("Please fill in at least one anti-vision question before continuing.");
+      return false;
+    }
+
+    setIsFlipping(true);
     setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/profile/vision/flip`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ anti_vision: antiVisionText }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "Failed to generate vision");
+      }
+      const data = await response.json();
+      setGeneratedVision(data.vision);
+      setVisionApproved(false);
+      return true;
+    } catch (err: any) {
+      setError(err.message || "Something went wrong while generating your vision.");
+      return false;
+    } finally {
+      setIsFlipping(false);
+    }
+  };
+
+  const handleNext = async () => {
+    setError(null);
+
+    // When leaving the Anti-Vision step (step 2), trigger the AI flip
+    if (step === 2) {
+      const success = await flipVision();
+      if (!success) return;
+    }
+
     setStep((prev) => Math.min(prev + 1, TOTAL_STEPS - 1));
   };
 
@@ -69,20 +132,21 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       const personalityMd = `# AI Personality\n\n${personality.trim() || "No personality defined yet."}\n`;
       await saveProfile("personality", personalityMd);
 
-      // Build and save vision.md from anti-vision questionnaire
+      // Build and save vision.md with anti-vision + AI-generated vision
       const visionMd = [
         "# Vision",
         "",
-        "## Anti-Vision Responses",
+        "## Anti-Vision",
         "",
-        "### Write down everything you hate, dislike, or complain about in your current life, including habits, relationships, work, health, or routines from your past that you never want to experience again.",
+        "### What I dislike, complain about, and want to avoid:",
         visionAnswers.q1.trim() || "_Not answered_",
         "",
-        "### What habits or patterns would lead you there?",
+        "### Worst-case 5–10+ years if nothing changes:",
         visionAnswers.q2.trim() || "_Not answered_",
         "",
-        "### What would you regret most if nothing changed?",
-        visionAnswers.q3.trim() || "_Not answered_",
+        "## My Vision",
+        "",
+        generatedVision.trim() || "_No vision generated_",
         "",
       ].join("\n");
       await saveProfile("vision", visionMd);
@@ -113,6 +177,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
   };
 
+  const handleRegenerateVision = async () => {
+    await flipVision();
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
       <Card className="w-full max-w-2xl shadow-2xl border-border animate-in fade-in zoom-in-95 duration-300">
@@ -120,9 +188,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           <div className="flex items-center justify-between">
             <CardTitle className="text-2xl font-extrabold tracking-tight">
               {step === 0 && "Welcome to AI Cognitive Journal"}
-              {step === 1 && "Step 1: AI Personality"}
-              {step === 2 && "Step 2: Your Anti-Vision"}
-              {step === 3 && "Step 3: Your Goals"}
+              {step === 1 && "Step 1: Personalize your AI Journal experience."}
+              {step === 2 && "Step 2: Anti-Vision Creation"}
+              {step === 3 && "Step 3: Your Vision"}
+              {step === 4 && "Step 4: Goals"}
             </CardTitle>
             <span className="text-xs text-muted-foreground font-mono">
               {step + 1}/{TOTAL_STEPS}
@@ -132,8 +201,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           <CardDescription>
             {step === 0 && "Let's set up your cognitive profile. This helps the AI understand you better. You can always redo this from the Profile page."}
             {step === 1 && "Define the personality of your AI assistant. How should it talk to you? What tone should it use?"}
-            {step === 2 && "Imagine your worst-case future. This \"anti-vision\" helps clarify what you truly want by defining what you want to avoid. (Placeholder questions — will be finalized later.)"}
-            {step === 3 && "Let's define your goals and what success looks like for you right now. (Placeholder questions — will be finalized later.)"}
+            {step === 2 && "Imagine your worst-case future. The \"anti-vision\" is the future you want to avoid."}
+            {step === 3 && "We flipped your anti-vision into a positive vision. Review it below — edit anything you want, then hit Next to lock it in."}
+            {step === 4 && "Reverse-engineer your vision into concrete goals. This becomes your north star."}
           </CardDescription>
         </CardHeader>
 
@@ -151,9 +221,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 This short onboarding will ask you to:
               </p>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                <li><strong>Define your AI's personality</strong> — how should the assistant communicate with you?</li>
+                <li><strong>Define your AI&apos;s personality</strong> — how should the assistant communicate with you?</li>
                 <li><strong>Explore your anti-vision</strong> — what future do you want to avoid?</li>
-                <li><strong>Set your goals</strong> — what are you working towards right now?</li>
+                <li><strong>AI generates your vision</strong> — your anti-vision gets flipped into motivating &quot;I&quot; statements.</li>
+                <li><strong>Set your goals</strong> — reverse-engineer your vision into actionable goals.</li>
               </ul>
               <p className="text-sm text-muted-foreground italic">
                 You can update all of these later from the Profile page.
@@ -179,53 +250,87 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             </div>
           )}
 
-          {/* Step 2: Anti-Vision (Placeholder Questionnaire) */}
+          {/* Step 2: Anti-Vision */}
           {step === 2 && (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
-                <Label htmlFor="vision-q1" className="text-sm font-medium">
-                  What does your worst-case future look like in 5 years?
+                <Label htmlFor="vision-q1" className="text-sm font-medium leading-relaxed">
+                  List everything you hate/dislike/complain about in your current/past life. 
+                  Observe societal &quot;default&quot; paths (mediocrity, breaking down, dead inside).
                 </Label>
                 <Textarea
                   id="vision-q1"
                   value={visionAnswers.q1}
                   onChange={(e) => setVisionAnswers({ ...visionAnswers, q1: e.target.value })}
-                  className="min-h-[80px] text-sm"
-                  placeholder="Describe the future you want to avoid..."
+                  className="min-h-[100px] text-sm"
+                  placeholder="Habits, relationships, work, societal defaults..."
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="vision-q2" className="text-sm font-medium">
-                  What habits or patterns would lead you there?
+                <Label htmlFor="vision-q2" className="text-sm font-medium leading-relaxed">
+                  Project the above worst-case 5–10+ years ahead if unchanged.
                 </Label>
                 <Textarea
                   id="vision-q2"
                   value={visionAnswers.q2}
                   onChange={(e) => setVisionAnswers({ ...visionAnswers, q2: e.target.value })}
-                  className="min-h-[80px] text-sm"
-                  placeholder="Think about destructive habits or tendencies..."
+                  className="min-h-[100px] text-sm"
+                  placeholder="Where does this path lead in a decade?"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="vision-q3" className="text-sm font-medium">
-                  What would you regret most if nothing changed?
-                </Label>
-                <Textarea
-                  id="vision-q3"
-                  value={visionAnswers.q3}
-                  onChange={(e) => setVisionAnswers({ ...visionAnswers, q3: e.target.value })}
-                  className="min-h-[80px] text-sm"
-                  placeholder="What's the biggest regret you'd have..."
-                />
-              </div>
-              <p className="text-xs text-muted-foreground italic">
-                ⚠️ These are placeholder questions. The final questionnaire will be updated soon.
-              </p>
             </div>
           )}
 
-          {/* Step 3: Goals (Placeholder Questionnaire) */}
+          {/* Step 3: Vision (AI-generated, editable) */}
           {step === 3 && (
+            <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+              {isFlipping ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <div className="relative">
+                    <div className="h-10 w-10 rounded-full border-4 border-muted border-t-primary animate-spin" />
+                  </div>
+                  <p className="text-sm text-muted-foreground animate-pulse">
+                    Flipping your anti-vision into your ideal life...
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="generated-vision" className="text-sm font-medium">
+                        Your AI-Generated Vision
+                      </Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRegenerateVision}
+                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-2"
+                      >
+                        <RefreshCcw className="h-3 w-3" />
+                        Regenerate
+                      </Button>
+                    </div>
+                    <Textarea
+                      id="generated-vision"
+                      value={generatedVision}
+                      onChange={(e) => {
+                        setGeneratedVision(e.target.value);
+                        setVisionApproved(false);
+                      }}
+                      className="min-h-[200px] text-sm leading-relaxed"
+                      placeholder="Your vision will appear here after processing..."
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground italic">
+                    ✏️ Feel free to edit, add, or remove any bullet points. This is <strong>your</strong> vision — make it resonate.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Step 4: Goals */}
+          {step === 4 && (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
                 <Label htmlFor="goals-q1" className="text-sm font-medium">
@@ -270,17 +375,26 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           )}
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={step === 0}
-            >
-              Back
-            </Button>
+          <div className="flex justify-between items-center pt-4 border-t">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={step === 0 || isFlipping}
+              >
+                Back
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={handleSkip}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Skip for now
+              </Button>
+            </div>
             {step < TOTAL_STEPS - 1 ? (
-              <Button onClick={handleNext}>
-                {step === 0 ? "Get Started" : "Next"}
+              <Button onClick={handleNext} disabled={isFlipping}>
+                {step === 0 ? "Get Started" : isFlipping ? "Processing..." : "Next"}
               </Button>
             ) : (
               <Button onClick={handleFinish} disabled={isSaving}>

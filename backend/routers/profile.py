@@ -1,12 +1,14 @@
 from fastapi import APIRouter, HTTPException
 
 from backend.services.profile import ProfileService
-from backend.schemas.profile import ProfileUpdateRequest, ConfigResponse, ConfigUpdateRequest
+from backend.schemas.profile import ProfileUpdateRequest, ConfigResponse, ConfigUpdateRequest, VisionFlipRequest
 from backend.config import settings, mask_api_key, update_env_and_reload
+from backend.agent.agents import Agent
 from logger.logger import get_logger
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 logger = get_logger()
+agent = Agent()
 
 # --- Configuration Endpoints ---
 
@@ -57,6 +59,24 @@ def reset_onboarding():
     ProfileService.reset_onboarding()
     return {"message": "Onboarding has been reset."}
 
+# --- Vision Flip (AI-powered) ---
+
+@router.post("/vision/flip")
+def flip_vision(request: VisionFlipRequest):
+    """
+    Takes the user's anti-vision and uses the LLM to flip it into
+    a positive vision — a bullet list of motivating 'I' statements.
+    """
+    logger.info("Vision flip requested")
+    try:
+        vision = agent.flip_vision(request.anti_vision)
+        return {"vision": vision}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Vision flip failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate vision. Please try again.")
+
 # --- Profile CRUD ---
 
 @router.get("/{filename}")
@@ -84,4 +104,5 @@ def update_profile(filename: str, request: ProfileUpdateRequest):
     except Exception as e:
         logger.error(f"Error updating profile {filename}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
