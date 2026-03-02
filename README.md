@@ -31,20 +31,26 @@ You can set up your API keys and models directly from the **Profile > Settings**
 
 ## How to Run
 
-1. **Start the Backend** (from the root folder):
+1. **Install dependencies** (from the project root):
 
    ```bash
-   uv run main.py
+   npm run install:all
    ```
 
-   _Runs on http://localhost:8000_
+2. **Start the full app in development (frontend + backend)**:
 
-2. **Start the Frontend** (in a new terminal):
    ```bash
-   cd frontend
-   npm install
    npm run dev
    ```
-   _Runs on http://localhost:3000_
+
+3. **Start the full app in production (recommended)**:
+
+   ```bash
+   npm start
+   ```
+
+Both unified commands start:
+- **Frontend (Next.js):** http://localhost:3000
+- **Backend (FastAPI):** http://localhost:8000
 
 Open `http://localhost:3000` in your browser to begin your journaling journey!
