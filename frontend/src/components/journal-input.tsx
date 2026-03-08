@@ -1,10 +1,12 @@
 "use client"
 
-import { useState, useRef, forwardRef, useImperativeHandle } from "react"
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react"
+import Image from "next/image"
 import { ArrowUp, Loader2, Brain, Sparkles } from "lucide-react"
+import { ModelSelector } from "@/components/model-selector"
 
 interface JournalInputProps {
-  onSubmit: (entry: string) => void
+  onSubmit: (entry: string, modelName?: string) => void
   loading?: boolean
 }
 
@@ -13,10 +15,14 @@ export interface JournalInputHandle {
   setValue: (val: string) => void
 }
 
+
 export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
   function JournalInput({ onSubmit, loading }, ref) {
     const [value, setValue] = useState("")
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+    // Model selector state
+    const [selectedModel, setSelectedModel] = useState("")
 
     useImperativeHandle(ref, () => ({
       focus: () => textareaRef.current?.focus(),
@@ -34,7 +40,7 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
     const handleSubmit = () => {
       const trimmed = value.trim()
       if (!trimmed) return
-      onSubmit(trimmed)
+      onSubmit(trimmed, selectedModel || undefined)
       setValue("")
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto"
@@ -57,6 +63,15 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
 
     return (
       <div className="mx-auto w-full max-w-2xl px-6 md:px-0">
+        {/* Model selector row */}
+        <div className="mb-2 flex items-center justify-end">
+          <ModelSelector
+            value={selectedModel}
+            onChange={setSelectedModel}
+            disabled={loading}
+          />
+        </div>
+
         {/* Input container — glowing border animation while processing */}
         <div
           className={`relative rounded-xl border backdrop-blur-sm transition-all duration-500 ${
@@ -108,15 +123,21 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
           <div className="flex items-center gap-3 rounded-lg border border-chart-1/20 bg-chart-1/[0.04] px-4 py-3">
             <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
               <div className="absolute inset-0 animate-ping rounded-full bg-chart-1/20" />
-              <Brain className="relative h-4 w-4 text-chart-1/70" />
+              {selectedModel ? (
+                <img src="/ollama.svg" alt="Ollama" className="h-4 w-4 object-contain invert dark:invert-0" />
+              ) : (
+                <img src="/gemini.svg" alt="Gemini" className="h-4 w-4 object-contain" />
+              )}
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-sm font-medium text-foreground/80 flex items-center gap-1.5">
-                Analyzing your thoughts
+                {selectedModel ? "Ollama is thinking" : "Gemini is thinking"}
                 <Sparkles className="h-3 w-3 text-chart-4/60" />
               </span>
               <span className="text-xs text-muted-foreground/50">
-                Extracting emotions, sentiment & insights...
+                {selectedModel
+                  ? `Using ${selectedModel} · Extracting emotions, sentiment & insights...`
+                  : "Extracting emotions, sentiment & insights..."}
               </span>
             </div>
           </div>

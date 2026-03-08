@@ -10,7 +10,7 @@ class JournalEntryBase(BaseModel):
     user_log: str
 
 class JournalEntryCreate(JournalEntryBase):
-    pass
+    model_name: Optional[str] = None  # User-selected Ollama model (e.g. "qwen3.5:4b")
 
 class JournalEntryResponse(JournalEntryBase):
     """

@@ -55,6 +55,14 @@ export interface ConfigData {
   message?: string;
 }
 
+export interface OllamaModel {
+  name: string;
+  size: number | null;
+  parameter_size: string | null;
+  family: string | null;
+  quantization_level: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // API client
 // ---------------------------------------------------------------------------
@@ -62,19 +70,22 @@ export interface ConfigData {
 export const api = {
   // --- Journal CRUD ---
 
-  async getEntries(): Promise<JournalEntry[]> {
-    const response = await fetch(`${API_BASE_URL}/entries/`);
+  async getEntries(skip: number = 0, limit: number = 5): Promise<JournalEntry[]> {
+    const response = await fetch(`${API_BASE_URL}/entries/?skip=${skip}&limit=${limit}`);
     if (!response.ok) throw new Error("Failed to fetch entries");
     return response.json();
   },
 
-  async createEntry(user_log: string): Promise<JournalEntry> {
+  async createEntry(user_log: string, model_name?: string): Promise<JournalEntry> {
+    const body: Record<string, string> = { user_log };
+    if (model_name) body.model_name = model_name;
+
     const response = await fetch(`${API_BASE_URL}/entries/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ user_log }),
+      body: JSON.stringify(body),
     });
     if (!response.ok) throw new Error("Failed to create entry");
     return response.json();
@@ -85,6 +96,20 @@ export const api = {
       method: "DELETE",
     });
     if (!response.ok) throw new Error("Failed to delete entry");
+  },
+
+  // --- Ollama Models ---
+
+  async getOllamaModels(): Promise<OllamaModel[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/models/ollama`);
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.models ?? [];
+    } catch {
+      // Ollama not running or backend unreachable — silently return empty
+      return [];
+    }
   },
 
   // --- Analytics ---
@@ -159,12 +184,16 @@ export const api = {
 
   async sendChatMessage(
     message: string,
-    history: ChatHistoryMessage[] = []
+    history: ChatHistoryMessage[] = [],
+    model_name?: string
   ): Promise<ChatResponse> {
+    const body: Record<string, unknown> = { message, history };
+    if (model_name) body.model_name = model_name;
+
     const response = await fetch(`${API_BASE_URL}/chat/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, history }),
+      body: JSON.stringify(body),
     });
     if (!response.ok) throw new Error("Failed to send chat message");
     return response.json();
@@ -172,12 +201,16 @@ export const api = {
 
   async *streamChatMessage(
     message: string,
-    history: ChatHistoryMessage[] = []
+    history: ChatHistoryMessage[] = [],
+    model_name?: string
   ): AsyncGenerator<ChatStreamEvent> {
+    const body: Record<string, unknown> = { message, history };
+    if (model_name) body.model_name = model_name;
+
     const response = await fetch(`${API_BASE_URL}/chat/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, history }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) throw new Error("Failed to start chat stream");

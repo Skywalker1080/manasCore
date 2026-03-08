@@ -34,7 +34,7 @@ def chat(request: ChatMessageInput, db: Session = Depends(get_db)):
 
     # Collect full response from streaming generator
     full_response = ""
-    for chunk in get_completion_stream(messages):
+    for chunk in get_completion_stream(messages, model_name=request.model_name):
         full_response += chunk
 
     # Build source citations
@@ -75,7 +75,7 @@ def chat_stream(request: ChatMessageInput, db: Session = Depends(get_db)):
         """Yields SSE events as the LLM generates tokens."""
         try:
             # Stream tokens
-            for chunk in get_completion_stream(messages):
+            for chunk in get_completion_stream(messages, model_name=request.model_name):
                 event_data = json.dumps({"type": "token", "content": chunk})
                 yield f"data: {event_data}\n\n"
 

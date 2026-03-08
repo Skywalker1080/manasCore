@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import engine, Base, create_vec_table, SessionLocal, migrate_db
-from backend.routers import journal, profile, analytics, chat
+from backend.routers import journal, profile, analytics, chat, models
 from backend.config import settings, DATA_DIR
 from backend.services.profile import ProfileService
 from backend.services.queue import process_pending_entries
@@ -62,6 +62,7 @@ app.include_router(journal.router)
 app.include_router(profile.router)
 app.include_router(analytics.router)
 app.include_router(chat.router)
+app.include_router(models.router)
 
 @app.get("/")
 def read_root():

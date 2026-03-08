@@ -5,6 +5,7 @@ import { Send, Sparkles, MessageCircle, Trash2, Activity, Target, BookOpen, Ligh
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage, TypingIndicator } from "@/components/chat-message";
+import { ModelSelector } from "@/components/model-selector";
 import {
   api,
   type ChatHistoryMessage,
@@ -94,6 +95,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -148,7 +150,7 @@ export default function ChatPage() {
         const history = buildHistory();
 
         // Stream tokens from the SSE endpoint
-        for await (const event of api.streamChatMessage(text, history)) {
+        for await (const event of api.streamChatMessage(text, history, selectedModel || undefined)) {
           const e = event as ChatStreamEvent;
 
           if (e.type === "token") {
@@ -354,14 +356,22 @@ export default function ChatPage() {
                 target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
               }}
             />
-            <Button
-              size="sm"
-              onClick={() => handleSend()}
-              disabled={!input.trim() || isStreaming}
-              className="h-8 w-8 shrink-0 rounded-xl bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border-0 transition-all duration-200 disabled:opacity-20"
-            >
-              <Send className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <ModelSelector
+                value={selectedModel}
+                onChange={setSelectedModel}
+                disabled={isStreaming}
+                compact
+              />
+              <Button
+                size="sm"
+                onClick={() => handleSend()}
+                disabled={!input.trim() || isStreaming}
+                className="h-8 w-8 shrink-0 rounded-xl bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border-0 transition-all duration-200 disabled:opacity-20"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
           <p className="mt-2 text-center text-[10px] text-muted-foreground/30">
             Responses are grounded in your journal entries, personality, goals & vision

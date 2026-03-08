@@ -9,3 +9,4 @@ litellm
 litellm[google]
 google-genai
 numpy
+httpx

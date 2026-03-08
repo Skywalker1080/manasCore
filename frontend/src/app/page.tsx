@@ -8,6 +8,8 @@ import { api, type JournalEntry } from "@/lib/api"
 import { CheckCircle2, XCircle } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
+const PAGE_SIZE = 5
+
 type Notification = {
   type: "success" | "error"
   message: string
@@ -24,6 +26,8 @@ export default function Home() {
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
   const [notification, setNotification] = useState<Notification>(null)
   const journalInputRef = useRef<JournalInputHandle>(null)
   const [tagline] = useState(() => TAGLINES[Math.floor(Math.random() * TAGLINES.length)])
@@ -47,8 +51,9 @@ export default function Home() {
 
   async function fetchEntries() {
     try {
-      const data = await api.getEntries()
+      const data = await api.getEntries(0, PAGE_SIZE)
       setEntries(data)
+      setHasMore(data.length >= PAGE_SIZE)
     } catch (error) {
       console.error("Error fetching entries:", error)
     } finally {
@@ -56,11 +61,24 @@ export default function Home() {
     }
   }
 
-  const handleNewEntry = useCallback(async (content: string) => {
+  async function loadMore() {
+    setLoadingMore(true)
+    try {
+      const data = await api.getEntries(entries.length, PAGE_SIZE)
+      setEntries((prev) => [...prev, ...data])
+      setHasMore(data.length >= PAGE_SIZE)
+    } catch (error) {
+      console.error("Error loading more entries:", error)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  const handleNewEntry = useCallback(async (content: string, modelName?: string) => {
     setLoading(true)
     setNotification(null)
     try {
-      const created = await api.createEntry(content)
+      const created = await api.createEntry(content, modelName)
       fetchEntries() // Refresh list
       if (created.pending) {
         setNotification({ type: "success", message: "Entry saved — AI is unavailable, it will be processed later 🕐" })
@@ -181,7 +199,14 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            <PreviousEntries entries={entries} onDelete={handleDelete} onEdit={handleEdit} />
+            <PreviousEntries
+              entries={entries}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              onLoadMore={loadMore}
+            />
           )}
         </main>
       </div>

@@ -25,7 +25,7 @@ def create_entry(entry: JournalEntryCreate, db: Session = Depends(get_db)):
         ai_failed = False
         try:
             logger.info("Starting AI metadata extraction...")
-            extraction = agent.extract(entry)
+            extraction = agent.extract(entry, model_name=entry.model_name)
         except Exception as ai_err:
             logger.warning(f"All AI providers failed for extraction: {ai_err}. Saving entry as pending.")
             ai_failed = True

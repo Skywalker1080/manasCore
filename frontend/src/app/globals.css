@@ -86,6 +86,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-glass: oklch(0.15 0.005 260 / 0.4);
   --color-glass-border: oklch(0.35 0.005 260 / 0.3);
+  --font-system-serif: ui-serif, Georgia, serif;
 }
 
 @layer base {

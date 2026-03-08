@@ -9,6 +9,7 @@ class ChatMessageInput(BaseModel):
     """Incoming chat message from the user."""
     message: str
     history: list[dict] = []  # Previous messages: [{role, content}, ...]
+    model_name: Optional[str] = None  # User-selected Ollama model
 
 
 class SourceEntry(BaseModel):

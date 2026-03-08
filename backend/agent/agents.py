@@ -3,11 +3,12 @@ from backend.agent.llm_client import get_completion, get_embeddings
 from backend.agent.prompts import JOURNAL_ANALYSIS_PROMPT, VISION_FLIP_PROMPT
 from backend.utils import parse_json_markdown
 from logger.logger import get_logger
+from typing import Optional
 
 logger = get_logger()
 
 class Agent():
-    def extract(self, message: JournalEntryCreate) -> ExtractorResponse:
+    def extract(self, message: JournalEntryCreate, model_name: Optional[str] = None) -> ExtractorResponse:
         """
         Takes a user journal entry, processes it via LLM to extract metadata,
         and returns a structured ExtractorResponse.
@@ -20,8 +21,8 @@ class Agent():
         # 1. Prepare formatted prompt
         formatted_prompt = JOURNAL_ANALYSIS_PROMPT.format(log=message.user_log)
 
-        # 2. Get raw completion from LLM
-        raw_response = get_completion(formatted_prompt)
+        # 2. Get raw completion from LLM (with optional user-selected model)
+        raw_response = get_completion(formatted_prompt, model_name=model_name)
 
         # 3. Safely parse JSON from response
         try:
@@ -34,7 +35,7 @@ class Agent():
         logger.info("Extraction successful")
         return ExtractorResponse(**parsed_data)
 
-    def flip_vision(self, anti_vision: str) -> str:
+    def flip_vision(self, anti_vision: str, model_name: Optional[str] = None) -> str:
         """
         Takes the user's anti-vision text and flips it into a positive vision
         using the Dan Koe-style VISION_FLIP_PROMPT.
@@ -48,7 +49,7 @@ class Agent():
             raise ValueError("Anti-vision text cannot be empty")
 
         formatted_prompt = VISION_FLIP_PROMPT.format(anti_vision=anti_vision.strip())
-        raw_response = get_completion(formatted_prompt)
+        raw_response = get_completion(formatted_prompt, model_name=model_name)
 
         # The response should be a clean bullet list — strip any stray whitespace
         vision = raw_response.strip()
@@ -60,4 +61,3 @@ class Agent():
         embeddings = get_embeddings(content)
         logger.info("Embedding generation successful")
         return embeddings
-

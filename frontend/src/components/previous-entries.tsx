@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import { format } from "date-fns"
-import { MoreHorizontal, Pencil, Trash2, Check, X, Sun, Cloud, CloudRain, Clock } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash2, Check, X, Sun, Cloud, CloudRain, Clock, Loader2 } from "lucide-react"
 import type { JournalEntry } from "@/lib/api"
+import { EntryDetailModal } from "@/components/entry-detail-modal"
 
 type Sentiment = "positive" | "neutral" | "negative"
 
@@ -49,12 +50,16 @@ interface PreviousEntriesProps {
   entries: JournalEntry[]
   onDelete: (id: number) => void
   onEdit: (id: number, newContent: string) => void
+  hasMore?: boolean
+  loadingMore?: boolean
+  onLoadMore?: () => void
 }
 
-export function PreviousEntries({ entries, onDelete, onEdit }: PreviousEntriesProps) {
+export function PreviousEntries({ entries, onDelete, onEdit, hasMore, loadingMore, onLoadMore }: PreviousEntriesProps) {
   const [openMenu, setOpenMenu] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState("")
+  const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
 
   if (entries.length === 0) {
     return (
@@ -88,7 +93,7 @@ export function PreviousEntries({ entries, onDelete, onEdit }: PreviousEntriesPr
     <div className="mx-auto w-full max-w-2xl px-6 pt-10 pb-16 md:px-0">
       <div className="mb-6 flex items-center gap-3">
         <div className="h-px flex-1 bg-border/30" />
-        <span className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground/40">
+        <span className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground/80">
           Previous Entries
         </span>
         <div className="h-px flex-1 bg-border/30" />
@@ -107,12 +112,15 @@ export function PreviousEntries({ entries, onDelete, onEdit }: PreviousEntriesPr
           return (
             <article
               key={entry.id}
-              className="group relative rounded-xl border border-white/5 bg-[oklch(0.13_0.005_260/0.55)] backdrop-blur-xl transition-all hover:bg-[oklch(0.15_0.005_260/0.65)] hover:border-white/10"
+              className="group relative rounded-xl border border-white/5 bg-[oklch(0.13_0.005_260/0.55)] backdrop-blur-xl transition-all hover:bg-[oklch(0.15_0.005_260/0.65)] hover:border-white/10 cursor-pointer"
+              onClick={() => {
+                if (editingId !== entry.id) setSelectedEntry(entry)
+              }}
             >
               {/* Top row: title + emotion + date + time + menu */}
               <div className="flex items-center gap-2.5 px-4 pt-3.5 pb-2">
                 {/* Title */}
-                <span className="flex-1 truncate font-mono text-xs font-medium tracking-wide text-foreground/70">
+                <span className="flex-1 truncate font-mono text-xs font-semibold tracking-wide text-white">
                   {title}
                 </span>
 
@@ -137,7 +145,7 @@ export function PreviousEntries({ entries, onDelete, onEdit }: PreviousEntriesPr
                 </span>
 
                 {/* More menu */}
-                <div className="relative">
+                <div className="relative" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => setOpenMenu(isMenuOpen ? null : entry.id)}
                     className="rounded-md p-1 text-muted-foreground/25 transition-colors hover:bg-white/5 hover:text-muted-foreground/60"
@@ -220,6 +228,32 @@ export function PreviousEntries({ entries, onDelete, onEdit }: PreviousEntriesPr
           )
         })}
       </div>
+
+      {/* Load more */}
+      {hasMore && onLoadMore && (
+        <div className="mt-4 flex justify-center">
+          <button
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            className="group flex items-center gap-1.5 font-mono text-xs tracking-wide text-muted-foreground/40 transition-colors hover:text-muted-foreground/70 disabled:opacity-50"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              "Load more"
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Entry detail modal */}
+      <EntryDetailModal
+        entry={selectedEntry}
+        onClose={() => setSelectedEntry(null)}
+      />
     </div>
   )
 }
