@@ -7,6 +7,7 @@ import { Loader2, Sun, Cloud, CloudRain, Lightbulb, BookOpen } from "lucide-reac
 import { format } from "date-fns";
 import { StreakCard } from "@/components/streak-card";
 import { EmotionChart } from "@/components/emotion-chart";
+import { useRouter } from "next/navigation";
 
 const API_BASE_URL = "http://localhost:8000";
 const POLL_INTERVAL_MS = 3000;
@@ -111,10 +112,15 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     { id: 1, text: "" }
   ]);
 
+  // step-7 final step
+  const [showFinalActions, setShowFinalActions] = useState(false);
+
   const [showNext, setShowNext] = useState(false);
   const [processingEntry, setProcessingEntry] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const router = useRouter();
 
   const PERSONALITY_OPTIONS = [
     { id: "direct", label: "Direct and challenging", desc: "(push me to think harder)" },
@@ -317,7 +323,20 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     } else if (step === 6) {
       setStep(7);
       setShowNext(false);
-      // Wait for next steps.
+      
+      const firstGoal = goals.find(g => g.text.trim())?.text || "grow and reflect";
+      const cleanGoal = firstGoal.replace(/^[A-Z]/, c => c.toLowerCase()).replace(/\.$/, "");
+
+      setTimeout(() => {
+        enqueue(
+          [
+            `You're all set, ${userName}!`,
+            `Your journal is now personalized to help you ${cleanGoal}.`,
+            "Want to write your first real entry now?"
+          ],
+          () => setShowFinalActions(true)
+        );
+      }, 300);
     }
   };
 
@@ -627,6 +646,30 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const handleSkip = async () => {
     try { await markOnboardingComplete(); onComplete(); }
     catch (err: any) { setError(err.message || "Failed to skip onboarding."); }
+  };
+
+  const handleFinish = async () => {
+    try {
+      setIsSaving(true);
+      await markOnboardingComplete();
+      router.push("/");
+      onComplete();
+    } catch (err: any) {
+      setIsSaving(false);
+      setError(err.message || "Failed to finish onboarding.");
+    }
+  };
+
+  const handleStartLater = async () => {
+    try {
+      setIsSaving(true);
+      await markOnboardingComplete();
+      router.push("/dashboard");
+      onComplete();
+    } catch (err: any) {
+      setIsSaving(false);
+      setError(err.message || "Failed to finish onboarding.");
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -939,8 +982,28 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           </div>
         )}
 
+        {/* Final Actions (Step 8) */}
+        {showFinalActions && (
+          <div className="mt-6 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-12">
+            <button
+              onClick={handleFinish}
+              disabled={isSaving}
+              className="group relative flex w-full max-w-sm items-center justify-center gap-3 overflow-hidden rounded-full bg-chart-1 px-8 py-3.5 text-sm font-semibold text-primary-foreground shadow-xl transition-all hover:bg-chart-1/90 disabled:opacity-50"
+            >
+              Let's do it
+            </button>
+            <button
+              onClick={handleStartLater}
+              disabled={isSaving}
+              className="text-xs font-mono tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            >
+              I'll start later
+            </button>
+          </div>
+        )}
+
         {/* Next button */}
-        {showNext && (
+        {showNext && !showFinalActions && (
           <div className="mt-6 flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-500">
             <button
               onClick={handleNext}
