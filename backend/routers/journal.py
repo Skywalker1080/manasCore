@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 from backend.database import get_db
 from backend.models.journal import JournalEntry
 from backend.schemas.journal import JournalEntryCreate, JournalEntryResponse
-from backend.agent.agents import Agent
-from backend.services.queue import process_pending_entries
+from backend.services.queue import process_pending_entries, process_single_entry
 from logger.logger import get_logger
 import json
 from sqlalchemy import text
@@ -14,57 +13,30 @@ from backend.utils import serialize_embedding
 router = APIRouter(prefix="/entries", tags=["journal"])
 logger = get_logger()
 
-@router.post("/", response_model=JournalEntryResponse, status_code=status.HTTP_201_CREATED)
-def create_entry(entry: JournalEntryCreate, db: Session = Depends(get_db)):
-    logger.info("Received request to create a new journal entry")
+@router.post("/", response_model=JournalEntryResponse, status_code=status.HTTP_202_ACCEPTED)
+def create_entry(
+    entry: JournalEntryCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """
+    Save the journal entry immediately with pending=True and return.
+    AI metadata extraction + embedding run in the background.
+    """
+    logger.info("Received request to create a new journal entry (async)")
     try:
-        agent = Agent()
-
-        # --- Attempt AI metadata extraction ---
-        extraction = None
-        ai_failed = False
-        try:
-            logger.info("Starting AI metadata extraction...")
-            extraction = agent.extract(entry, model_name=entry.model_name)
-        except Exception as ai_err:
-            logger.warning(f"All AI providers failed for extraction: {ai_err}. Saving entry as pending.")
-            ai_failed = True
-
-        # --- Save the entry (with or without AI metadata) ---
-        logger.info("Saving entry to journal_entries table...")
+        # --- Save the entry immediately as pending ---
         db_entry = JournalEntry(
             user_log=entry.user_log,
-            title=extraction.title if extraction else None,
-            emotion=extraction.emotion if extraction else None,
-            sentiment=extraction.sentiment if extraction else None,
-            mode=extraction.mode if extraction else None,
-            summary=extraction.summary if extraction else None,
-            actionable_insight=extraction.actionable_insight if extraction else None,
-            tags=(",".join(extraction.tags) if extraction and extraction.tags else None),
-            pending=ai_failed,
+            pending=True,
         )
         db.add(db_entry)
         db.commit()
         db.refresh(db_entry)
-        logger.info(f"Journal entry saved with ID: {db_entry.id} (pending={ai_failed})")
+        logger.info(f"Journal entry saved with ID: {db_entry.id} (pending=True, async)")
 
-        # --- Embedding (only when AI succeeded and we have a summary) ---
-        if extraction and extraction.summary:
-            try:
-                logger.info("Starting AI embedding generation for summary...")
-                vector = agent.embedder(extraction.summary)
-                serialized_vector = serialize_embedding(vector)
-
-                logger.info(f"Saving embedding to vec_entries for ID: {db_entry.id}...")
-                db.execute(
-                    text("INSERT INTO vec_entries(entry_id, embedding) VALUES (:id, :vec)"),
-                    {"id": db_entry.id, "vec": serialized_vector}
-                )
-                db.commit()
-                logger.info("Vector embedding saved successfully")
-            except Exception as emb_err:
-                # Embedding failure is non-critical; the entry is already saved.
-                logger.warning(f"Embedding generation failed (non-critical): {emb_err}")
+        # --- Dispatch background processing ---
+        background_tasks.add_task(process_single_entry, db_entry.id, entry.model_name)
 
         return db_entry
     except Exception as e:
@@ -72,7 +44,7 @@ def create_entry(entry: JournalEntryCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred while processing your entry: {str(e)}"
+            detail=f"An error occurred while saving your entry: {str(e)}"
         )
 
 @router.get("/", response_model=List[JournalEntryResponse])

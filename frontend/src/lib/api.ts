@@ -91,6 +91,12 @@ export const api = {
     return response.json();
   },
 
+  async getEntry(id: number): Promise<JournalEntry> {
+    const response = await fetch(`${API_BASE_URL}/entries/${id}`);
+    if (!response.ok) throw new Error("Failed to fetch entry");
+    return response.json();
+  },
+
   async deleteEntry(id: number): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/entries/${id}`, {
       method: "DELETE",
@@ -243,6 +249,75 @@ export const api = {
     }
 
     // Process any remaining buffer
+    if (buffer.trim().startsWith("data: ")) {
+      try {
+        const data = JSON.parse(buffer.trim().slice(6));
+        yield data as ChatStreamEvent;
+      } catch {
+        // Skip
+      }
+    }
+  },
+
+  async *streamEntryChatMessage(
+    message: string,
+    entry: {
+      entry_log: string;
+      entry_summary?: string | null;
+      entry_insight?: string | null;
+      entry_sentiment?: number | null;
+      entry_emotion?: string | null;
+      entry_mode?: string | null;
+    },
+    history: ChatHistoryMessage[] = [],
+    model_name?: string
+  ): AsyncGenerator<ChatStreamEvent> {
+    const body: Record<string, unknown> = {
+      message,
+      history,
+      entry_log: entry.entry_log,
+      entry_summary: entry.entry_summary ?? null,
+      entry_insight: entry.entry_insight ?? null,
+      entry_sentiment: entry.entry_sentiment ?? null,
+      entry_emotion: entry.entry_emotion ?? null,
+      entry_mode: entry.entry_mode ?? null,
+    };
+    if (model_name) body.model_name = model_name;
+
+    const response = await fetch(`${API_BASE_URL}/chat/entry/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) throw new Error("Failed to start entry chat stream");
+    if (!response.body) throw new Error("No response body for streaming");
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("data: ")) {
+          try {
+            const data = JSON.parse(trimmed.slice(6));
+            yield data as ChatStreamEvent;
+          } catch {
+            // Skip malformed events
+          }
+        }
+      }
+    }
+
     if (buffer.trim().startsWith("data: ")) {
       try {
         const data = JSON.parse(buffer.trim().slice(6));

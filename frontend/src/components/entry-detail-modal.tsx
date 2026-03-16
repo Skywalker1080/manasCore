@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import {
   X,
@@ -15,6 +16,7 @@ import {
   Calendar,
   RefreshCw,
   Lightbulb,
+  ArrowRight,
 } from "lucide-react"
 import type { JournalEntry } from "@/lib/api"
 
@@ -75,6 +77,7 @@ interface EntryDetailModalProps {
 
 export function EntryDetailModal({ entry, onClose }: EntryDetailModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
   // Close on Escape key
   useEffect(() => {
@@ -284,6 +287,32 @@ export function EntryDetailModal({ entry, onClose }: EntryDetailModalProps) {
                 </div>
               </div>
             </>
+          )}
+          {/* Ask about this entry */}
+          {!entry.pending && (
+            <div className="px-6 pb-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  const entryData = {
+                    entry_log: entry.user_log,
+                    entry_summary: entry.summary,
+                    entry_insight: entry.actionable_insight,
+                    entry_sentiment: entry.sentiment,
+                    entry_emotion: entry.emotion,
+                    entry_mode: entry.mode,
+                    entry_title: entry.title,
+                  }
+                  const encoded = encodeURIComponent(JSON.stringify(entryData))
+                  onClose()
+                  router.push(`/chat?entry=${encoded}`)
+                }}
+                className="group flex items-center justify-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-5 py-2.5 font-mono text-sm text-emerald-400/90 transition-all hover:bg-emerald-500/[0.12] hover:border-emerald-500/30 hover:text-emerald-300 cursor-pointer"
+              >
+                Ask Manas
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </button>
+            </div>
           )}
 
         </div>

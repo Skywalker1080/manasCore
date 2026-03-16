@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Sparkles, MessageCircle, Trash2, Activity, Target, BookOpen, Lightbulb, Flame, Zap, Route, History } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Send, Sparkles, MessageCircle, Trash2, Activity, Target, BookOpen, Lightbulb, Flame, Zap, Route, History, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage, TypingIndicator } from "@/components/chat-message";
@@ -20,6 +21,16 @@ interface Message {
   content: string;
   sources?: ChatSource[];
   isStreaming?: boolean;
+}
+
+interface EntryContext {
+  entry_log: string;
+  entry_summary?: string | null;
+  entry_insight?: string | null;
+  entry_sentiment?: number | null;
+  entry_emotion?: string | null;
+  entry_mode?: string | null;
+  entry_title?: string | null;
 }
 
 // ---- Suggested questions for empty state ----
@@ -91,14 +102,41 @@ const SUGGESTIONS = [
   },
 ];
 
-export default function ChatPage() {
+// ---- Entry-specific suggested questions ----
+const ENTRY_SUGGESTIONS = [
+  "What does this entry reveal about my current mindset?",
+  "How can I act on the insight from this entry?",
+  "What emotions am I not fully acknowledging here?",
+  "What patterns do you notice in what I wrote?",
+];
+
+function ChatPageContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedModel, setSelectedModel] = useState("");
+  const [entryContext, setEntryContext] = useState<EntryContext | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const entryInitialized = useRef(false);
+
+  // Parse entry context from URL params
+  useEffect(() => {
+    if (entryInitialized.current) return;
+    const entryParam = searchParams.get("entry");
+    if (entryParam) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(entryParam)) as EntryContext;
+        setEntryContext(parsed);
+        entryInitialized.current = true;
+      } catch (e) {
+        console.error("Failed to parse entry context:", e);
+      }
+    }
+  }, [searchParams]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -149,8 +187,12 @@ export default function ChatPage() {
       try {
         const history = buildHistory();
 
-        // Stream tokens from the SSE endpoint
-        for await (const event of api.streamChatMessage(text, history, selectedModel || undefined)) {
+        // Choose the appropriate streaming endpoint
+        const streamGenerator = entryContext
+          ? api.streamEntryChatMessage(text, entryContext, history, selectedModel || undefined)
+          : api.streamChatMessage(text, history, selectedModel || undefined);
+
+        for await (const event of streamGenerator) {
           const e = event as ChatStreamEvent;
 
           if (e.type === "token") {
@@ -216,7 +258,7 @@ export default function ChatPage() {
         inputRef.current?.focus();
       }
     },
-    [input, isStreaming, buildHistory]
+    [input, isStreaming, buildHistory, entryContext, selectedModel]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -228,6 +270,11 @@ export default function ChatPage() {
 
   const clearChat = () => {
     setMessages([]);
+    if (entryContext) {
+      setEntryContext(null);
+      entryInitialized.current = false;
+      router.replace("/chat");
+    }
     inputRef.current?.focus();
   };
 
@@ -245,6 +292,15 @@ export default function ChatPage() {
         {/* Header area */}
         <div className="flex items-center justify-between pt-24 pb-4">
           <div className="flex items-center gap-2">
+            {entryContext && (
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground/80 transition-colors mr-2"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Back
+              </button>
+            )}
             {!isEmpty && (
               <>
                 <div className="h-1.5 w-1.5 rounded-full bg-emerald-500/60" />
@@ -274,39 +330,67 @@ export default function ChatPage() {
             <div className="flex flex-col items-center justify-center h-full pt-8 pb-32">
               <div className="mb-8 flex flex-col items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border/20 bg-card/40">
-                  <Sparkles className="h-5 w-5 text-emerald-500/70" />
+                  {entryContext ? (
+                    <MessageCircle className="h-5 w-5 text-emerald-500/70" />
+                  ) : (
+                    <Sparkles className="h-5 w-5 text-emerald-500/70" />
+                  )}
                 </div>
                 <h1 className="font-serif text-3xl text-foreground/90 tracking-tight">
-                  Ask your journal
+                  {entryContext
+                    ? `"${entryContext.entry_title || "Untitled Entry"}"`
+                    : "Ask your journal"}
                 </h1>
                 <p className="max-w-sm text-center text-sm text-muted-foreground/60 leading-relaxed">
-                  I have context from your entries, goals, and vision. Ask me
-                  anything about your patterns, progress, or reflections.
+                  {entryContext
+                    ? "Let's talk about this journal entry. Ask me anything — I have full context of what you wrote, the insights, and the emotions detected."
+                    : "I have context from your entries, goals, and vision. Ask me anything about your patterns, progress, or reflections."}
                 </p>
               </div>
 
-              <div className="flex flex-wrap justify-center gap-2.5 max-w-2xl mt-4 px-2">
-                {SUGGESTIONS.map((s, index) => {
-                  const IconComponent = s.icon;
-                  return (
+              {entryContext ? (
+                /* Entry-specific suggestions */
+                <div className="flex flex-wrap justify-center gap-2.5 max-w-2xl mt-4 px-2">
+                  {ENTRY_SUGGESTIONS.map((prompt, index) => (
                     <button
                       key={index}
-                      onClick={() => handleSend(s.prompt)}
-                      className={`group relative overflow-hidden rounded-lg border transition-all duration-300 px-3 py-2 backdrop-blur-sm ${s.borderColor}`}
+                      onClick={() => handleSend(prompt)}
+                      className="group relative overflow-hidden rounded-lg border transition-all duration-300 px-3 py-2 backdrop-blur-sm border-emerald-400/20 hover:border-emerald-400/40"
                     >
-                      <div
-                        className={`absolute inset-0 bg-gradient-to-br ${s.color} transition-opacity duration-300`}
-                      />
+                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 transition-opacity duration-300" />
                       <div className="relative z-10 flex items-center gap-2">
-                        <IconComponent className="h-3.5 w-3.5 shrink-0 transition-transform duration-300 group-hover:scale-110" />
-                        <span className={`text-xs transition-colors duration-300 ${s.textColor} font-mono whitespace-nowrap`}>
-                          {s.label}
+                        <span className="text-xs transition-colors duration-300 text-emerald-200/70 hover:text-emerald-100 font-mono whitespace-nowrap">
+                          {prompt}
                         </span>
                       </div>
                     </button>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                /* General suggestions */
+                <div className="flex flex-wrap justify-center gap-2.5 max-w-2xl mt-4 px-2">
+                  {SUGGESTIONS.map((s, index) => {
+                    const IconComponent = s.icon;
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => handleSend(s.prompt)}
+                        className={`group relative overflow-hidden rounded-lg border transition-all duration-300 px-3 py-2 backdrop-blur-sm ${s.borderColor}`}
+                      >
+                        <div
+                          className={`absolute inset-0 bg-gradient-to-br ${s.color} transition-opacity duration-300`}
+                        />
+                        <div className="relative z-10 flex items-center gap-2">
+                          <IconComponent className="h-3.5 w-3.5 shrink-0 transition-transform duration-300 group-hover:scale-110" />
+                          <span className={`text-xs transition-colors duration-300 ${s.textColor} font-mono whitespace-nowrap`}>
+                            {s.label}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : (
             /* -------- Message list -------- */
@@ -335,6 +419,26 @@ export default function ChatPage() {
 
         {/* Input bar */}
         <div className="sticky bottom-0 pb-6 pt-2">
+          {/* Entry context indicator */}
+          {entryContext && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg border border-emerald-500/10 bg-emerald-500/[0.03] px-3 py-1.5">
+              <MessageCircle className="h-3 w-3 text-emerald-400/50" />
+              <span className="text-[11px] font-mono text-emerald-400/50 truncate flex-1">
+                Discussing: {entryContext.entry_title || "Journal entry"}
+              </span>
+              <button
+                onClick={() => {
+                  setEntryContext(null);
+                  setMessages([]);
+                  entryInitialized.current = false;
+                  router.replace("/chat");
+                }}
+                className="text-[10px] font-mono text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
+              >
+                Exit
+              </button>
+            </div>
+          )}
           <div className="relative flex items-end gap-2 rounded-2xl border border-border/30 bg-card/40 px-4 py-3 backdrop-blur-md shadow-lg shadow-background/50 focus-within:border-border/50 transition-colors">
             <MessageCircle className="mb-1 h-4 w-4 shrink-0 text-muted-foreground/30" />
             <textarea
@@ -342,7 +446,7 @@ export default function ChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about your journal..."
+              placeholder={entryContext ? "Ask about this entry..." : "Ask about your journal..."}
               rows={1}
               disabled={isStreaming}
               className="flex-1 resize-none bg-transparent text-sm text-foreground/90 placeholder:text-muted-foreground/30 focus:outline-none disabled:opacity-50 max-h-32"
@@ -374,10 +478,20 @@ export default function ChatPage() {
             </div>
           </div>
           <p className="mt-2 text-center text-[10px] text-muted-foreground/30">
-            Responses are grounded in your journal entries, personality, goals & vision
+            {entryContext
+              ? "Responses are focused on this specific journal entry"
+              : "Responses are grounded in your journal entries, personality, goals & vision"}
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-background"><div className="h-1.5 w-1.5 rounded-full bg-emerald-500/60 animate-pulse" /></div>}>
+      <ChatPageContent />
+    </Suspense>
   );
 }

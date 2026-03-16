@@ -5,13 +5,14 @@ import { JournalInput, type JournalInputHandle } from "@/components/journal-inpu
 import { PreviousEntries } from "@/components/previous-entries"
 import { PromptSuggestions } from "@/components/prompt-suggestions"
 import { api, type JournalEntry } from "@/lib/api"
-import { CheckCircle2, XCircle } from "lucide-react"
+import { CheckCircle2, XCircle, Loader2, Sparkles } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
 const PAGE_SIZE = 5
+const POLL_INTERVAL_MS = 3000
 
 type Notification = {
-  type: "success" | "error"
+  type: "success" | "error" | "processing"
   message: string
 } | null
 
@@ -24,7 +25,6 @@ const TAGLINES = [
 
 export default function Home() {
   const [entries, setEntries] = useState<JournalEntry[]>([])
-  const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -32,15 +32,24 @@ export default function Home() {
   const journalInputRef = useRef<JournalInputHandle>(null)
   const [tagline] = useState(() => TAGLINES[Math.floor(Math.random() * TAGLINES.length)])
   const dismissTimer = useRef<ReturnType<typeof setTimeout>>(null)
+  const pendingPolls = useRef<Map<number, ReturnType<typeof setInterval>>>(new Map())
+
+  // Track how many entries are currently processing
+  const pendingCount = entries.filter((e) => e.pending).length
 
   // Fetch entries on mount
   useEffect(() => {
     fetchEntries()
+    return () => {
+      // Cleanup all polling intervals on unmount
+      pendingPolls.current.forEach((interval) => clearInterval(interval))
+      pendingPolls.current.clear()
+    }
   }, [])
 
-  // Auto-dismiss notification
+  // Auto-dismiss non-processing notifications
   useEffect(() => {
-    if (notification) {
+    if (notification && notification.type !== "processing") {
       if (dismissTimer.current) clearTimeout(dismissTimer.current)
       dismissTimer.current = setTimeout(() => setNotification(null), 4000)
     }
@@ -49,11 +58,30 @@ export default function Home() {
     }
   }, [notification])
 
+  // Update processing notification whenever pending count changes
+  useEffect(() => {
+    if (pendingCount > 0) {
+      setNotification({
+        type: "processing",
+        message: pendingCount === 1
+          ? "Manas is analyzing your entry…"
+          : `Manas is analyzing ${pendingCount} entries…`,
+      })
+    } else {
+      // Clear "processing" notification when all done
+      setNotification((prev) =>
+        prev?.type === "processing" ? null : prev
+      )
+    }
+  }, [pendingCount])
+
   async function fetchEntries() {
     try {
       const data = await api.getEntries(0, PAGE_SIZE)
       setEntries(data)
       setHasMore(data.length >= PAGE_SIZE)
+      // Start polling for any entries that are already pending
+      data.filter((e) => e.pending).forEach((e) => startPolling(e.id))
     } catch (error) {
       console.error("Error fetching entries:", error)
     } finally {
@@ -67,6 +95,8 @@ export default function Home() {
       const data = await api.getEntries(entries.length, PAGE_SIZE)
       setEntries((prev) => [...prev, ...data])
       setHasMore(data.length >= PAGE_SIZE)
+      // Start polling for any new pending entries
+      data.filter((e) => e.pending).forEach((e) => startPolling(e.id))
     } catch (error) {
       console.error("Error loading more entries:", error)
     } finally {
@@ -74,29 +104,66 @@ export default function Home() {
     }
   }
 
+  /**
+   * Start polling a pending entry until it's processed.
+   */
+  const startPolling = useCallback((entryId: number) => {
+    // Don't start duplicate polls
+    if (pendingPolls.current.has(entryId)) return
+
+    const interval = setInterval(async () => {
+      try {
+        const updated = await api.getEntry(entryId)
+        if (!updated.pending) {
+          // Entry is done! Update it in the list
+          clearInterval(interval)
+          pendingPolls.current.delete(entryId)
+
+          setEntries((prev) =>
+            prev.map((e) => (e.id === updated.id ? updated : e))
+          )
+
+          setNotification({
+            type: "success",
+            message: "Entry processed — emotions & insights extracted ✨",
+          })
+        }
+      } catch (err) {
+        console.error(`Polling error for entry ${entryId}:`, err)
+        // Don't clear interval on transient errors — keep retrying
+      }
+    }, POLL_INTERVAL_MS)
+
+    pendingPolls.current.set(entryId, interval)
+  }, [])
+
   const handleNewEntry = useCallback(async (content: string, modelName?: string) => {
-    setLoading(true)
     setNotification(null)
     try {
       const created = await api.createEntry(content, modelName)
-      fetchEntries() // Refresh list
-      if (created.pending) {
-        setNotification({ type: "success", message: "Entry saved — AI is unavailable, it will be processed later 🕐" })
-      } else {
-        setNotification({ type: "success", message: "Entry saved — emotions & insights extracted ✨" })
-      }
+
+      // Optimistically add the pending entry to the top of the list
+      setEntries((prev) => [created, ...prev])
+
+      // Start polling for this entry
+      startPolling(created.id)
     } catch (error) {
       console.error("Error creating entry:", error)
       setNotification({ type: "error", message: "Something went wrong. Please try again." })
-    } finally {
-      setLoading(false)
     }
-  }, [])
+  }, [startPolling])
 
   const handleDelete = useCallback(async (id: number) => {
     try {
+      // Stop polling if it's pending
+      const interval = pendingPolls.current.get(id)
+      if (interval) {
+        clearInterval(interval)
+        pendingPolls.current.delete(id)
+      }
+
       await api.deleteEntry(id)
-      fetchEntries() // Refresh list
+      setEntries((prev) => prev.filter((e) => e.id !== id))
     } catch (error) {
       console.error("Error deleting entry:", error)
     }
@@ -138,22 +205,28 @@ export default function Home() {
             className={`flex items-center gap-2.5 rounded-xl border px-4 py-2.5 shadow-lg backdrop-blur-md ${
               notification.type === "success"
                 ? "border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-600 dark:text-emerald-300"
+                : notification.type === "processing"
+                ? "border-chart-1/20 bg-chart-1/[0.06] text-chart-1 dark:text-chart-4"
                 : "border-red-500/20 bg-red-500/[0.08] text-red-600 dark:text-red-300"
             }`}
           >
             {notification.type === "success" ? (
               <CheckCircle2 className="h-4 w-4 shrink-0" />
+            ) : notification.type === "processing" ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
             ) : (
               <XCircle className="h-4 w-4 shrink-0" />
             )}
             <span className="text-sm font-medium">{notification.message}</span>
-            <button
-              onClick={() => setNotification(null)}
-              className="ml-2 text-current/50 hover:text-current transition-colors text-xs"
-              aria-label="Dismiss"
-            >
-              ✕
-            </button>
+            {notification.type !== "processing" && (
+              <button
+                onClick={() => setNotification(null)}
+                className="ml-2 text-current/50 hover:text-current transition-colors text-xs"
+                aria-label="Dismiss"
+              >
+                ✕
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -170,8 +243,12 @@ export default function Home() {
           {/* Prompt suggestions */}
           <PromptSuggestions onSelectPrompt={handlePromptSelect} />
 
-          {/* Journal input */}
-          <JournalInput onSubmit={handleNewEntry} loading={loading} ref={journalInputRef} />
+          {/* Journal input — never blocked */}
+          <JournalInput
+            onSubmit={handleNewEntry}
+            pendingCount={pendingCount}
+            ref={journalInputRef}
+          />
 
           {/* Loading skeletons for entry list */}
           {initialLoading ? (
@@ -213,4 +290,3 @@ export default function Home() {
     </div>
   )
 }
-

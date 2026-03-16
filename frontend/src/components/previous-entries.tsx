@@ -124,11 +124,11 @@ export function PreviousEntries({ entries, onDelete, onEdit, hasMore, loadingMor
                   {title}
                 </span>
 
-                {/* Emotion badge / Pending badge */}
+                {/* Emotion badge / Processing badge */}
                 {entry.pending ? (
-                  <span className="flex shrink-0 items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] tracking-wider text-amber-400/80">
-                    <Clock className="h-2.5 w-2.5" />
-                    Pending
+                  <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-chart-1/30 bg-chart-1/10 px-2.5 py-0.5 font-mono text-[10px] tracking-wider text-chart-1/80 animate-pulse">
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                    Processing
                   </span>
                 ) : entry.emotion ? (
                   <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground/50 bg-white/5 px-2 py-0.5 rounded-full">

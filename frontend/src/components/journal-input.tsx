@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react"
-import Image from "next/image"
-import { ArrowUp, Loader2, Brain, Sparkles } from "lucide-react"
+import { useState, useRef, forwardRef, useImperativeHandle } from "react"
+import { ArrowUp, Loader2, Sparkles } from "lucide-react"
 import { ModelSelector } from "@/components/model-selector"
 
 interface JournalInputProps {
   onSubmit: (entry: string, modelName?: string) => void
-  loading?: boolean
+  pendingCount?: number
 }
 
 export interface JournalInputHandle {
@@ -17,8 +16,10 @@ export interface JournalInputHandle {
 
 
 export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
-  function JournalInput({ onSubmit, loading }, ref) {
+  function JournalInput({ onSubmit, pendingCount = 0 }, ref) {
     const [value, setValue] = useState("")
+    const [isFocused, setIsFocused] = useState(false)
+    const [submitting, setSubmitting] = useState(false)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
 
     // Model selector state
@@ -37,13 +38,19 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
       },
     }))
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
       const trimmed = value.trim()
-      if (!trimmed) return
-      onSubmit(trimmed, selectedModel || undefined)
-      setValue("")
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto"
+      if (!trimmed || submitting) return
+      setSubmitting(true)
+      try {
+        onSubmit(trimmed, selectedModel || undefined)
+        setValue("")
+        if (textareaRef.current) {
+          textareaRef.current.style.height = "auto"
+        }
+      } finally {
+        // Small delay to prevent double-tap
+        setTimeout(() => setSubmitting(false), 300)
       }
     }
 
@@ -61,24 +68,32 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
       }
     }
 
-    return (
-      <div className="mx-auto w-full max-w-2xl px-6 md:px-0">
-        {/* Model selector row */}
-        <div className="mb-2 flex items-center justify-end">
-          <ModelSelector
-            value={selectedModel}
-            onChange={setSelectedModel}
-            disabled={loading}
-          />
-        </div>
+    const isProcessing = pendingCount > 0
 
-        {/* Input container — glowing border animation while processing */}
+    return (
+      <>
+        {/* Distraction-free overlay */}
         <div
-          className={`relative rounded-xl border backdrop-blur-sm transition-all duration-500 ${
-            loading
-              ? "border-chart-1/40 bg-secondary/40 shadow-[0_0_20px_-5px] shadow-chart-1/10"
-              : "border-border/40 bg-secondary/30 focus-within:border-border/70 focus-within:bg-secondary/50"
+          className={`fixed inset-0 bg-background/95 backdrop-blur-sm transition-all duration-700 ease-in-out ${
+            isFocused
+              ? "z-40 opacity-100 pointer-events-auto"
+              : "-z-10 opacity-0 pointer-events-none"
           }`}
+          aria-hidden="true"
+        />
+
+        <div className={`mx-auto w-full max-w-2xl px-6 md:px-0 relative transition-all duration-500 ${isFocused ? "z-50" : "z-10"}`}>
+          {/* Model selector row */}
+          <div className={`relative z-20 mb-2 flex items-center justify-end transition-all duration-500 ${isFocused ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100 translate-y-0"}`}>
+            <ModelSelector
+              value={selectedModel}
+              onChange={setSelectedModel}
+            />
+          </div>
+
+        {/* Input container */}
+        <div
+          className={`relative rounded-xl border backdrop-blur-sm transition-all duration-500 border-border/40 bg-secondary/30 focus-within:border-border/70 focus-within:bg-secondary/50`}
         >
           <textarea
             ref={textareaRef}
@@ -86,26 +101,23 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onInput={handleInput}
-            disabled={loading}
-            placeholder={loading ? "Processing your entry..." : "What's on your mind tonight..."}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder="What's on your mind tonight..."
             rows={1}
-            className="w-full resize-none bg-transparent px-5 pt-4 pb-12 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none disabled:cursor-not-allowed md:text-lg"
+            className="w-full resize-none bg-transparent px-5 pt-4 pb-12 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none md:text-lg"
           />
           <div className="absolute right-3 bottom-3 flex items-center gap-2">
             <span className="text-xs tracking-wider text-muted-foreground/40 font-mono">
-              {!loading && value.length > 0 ? `${value.length}` : ""}
+              {value.length > 0 ? `${value.length}` : ""}
             </span>
             <button
               onClick={handleSubmit}
-              disabled={!value.trim() || loading}
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-                loading
-                  ? "bg-chart-1/15 text-chart-1/70"
-                  : "bg-foreground/10 text-foreground/50 hover:bg-foreground/20 hover:text-foreground disabled:opacity-30 disabled:hover:bg-foreground/10 disabled:hover:text-foreground/50"
-              }`}
-              aria-label={loading ? "Processing..." : "Send journal entry"}
+              disabled={!value.trim() || submitting}
+              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all bg-foreground/10 text-foreground/50 hover:bg-foreground/20 hover:text-foreground disabled:opacity-30 disabled:hover:bg-foreground/10 disabled:hover:text-foreground/50`}
+              aria-label="Send journal entry"
             >
-              {loading ? (
+              {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <ArrowUp className="h-4 w-4" />
@@ -114,10 +126,10 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
           </div>
         </div>
 
-        {/* Processing status banner */}
+        {/* Processing status banner — visible but non-blocking */}
         <div
           className={`overflow-hidden transition-all duration-500 ease-in-out ${
-            loading ? "mt-3 max-h-20 opacity-100" : "mt-0 max-h-0 opacity-0"
+            isProcessing ? "mt-3 max-h-20 opacity-100" : "mt-0 max-h-0 opacity-0"
           }`}
         >
           <div className="flex items-center gap-3 rounded-lg border border-chart-1/20 bg-chart-1/[0.04] px-4 py-3">
@@ -131,18 +143,21 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-sm font-medium text-foreground/80 flex items-center gap-1.5">
-                {selectedModel ? "Ollama is thinking" : "Gemini is thinking"}
+                Manas is thinking
                 <Sparkles className="h-3 w-3 text-chart-4/60" />
               </span>
               <span className="text-xs text-muted-foreground/50">
-                {selectedModel
-                  ? `Using ${selectedModel} · Extracting emotions, sentiment & insights...`
-                  : "Extracting emotions, sentiment & insights..."}
+                {pendingCount === 1
+                  ? "Extracting emotions, sentiment & insights…"
+                  : `Processing ${pendingCount} entries — extracting emotions, sentiment & insights…`}
+                {" "}
+                <span className="text-muted-foreground/30">You can keep writing</span>
               </span>
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </>
     )
   }
 )
