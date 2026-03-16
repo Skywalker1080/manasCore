@@ -20,6 +20,7 @@ interface ChatMessage {
   /** Special "widget" messages rendered as something other than text */
   widget?: "journal-input" | "entry-card" | "mock-dashboard";
   entry?: JournalEntry;
+  isSad?: boolean;
 }
 
 interface OnboardingFlowProps {
@@ -92,6 +93,18 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [selectedPersonality, setSelectedPersonality] = useState<string>("");
   const [customPersonality, setCustomPersonality] = useState("");
   
+  // step-4 anti-vision visible
+  const [waitingForAntiVisionInput, setWaitingForAntiVisionInput] = useState(false);
+  const [antiVisionText, setAntiVisionText] = useState("");
+  const [flippedVision, setFlippedVision] = useState<string | null>(null);
+  const [isFlippingVision, setIsFlippingVision] = useState(false);
+
+  // step-5 vision editor
+  const [showVisionEditor, setShowVisionEditor] = useState(false);
+  const [visionEditorMode, setVisionEditorMode] = useState<"view" | "edit" | "regenerate">("view");
+  const [editedVision, setEditedVision] = useState("");
+  const [regeneratePrompt, setRegeneratePrompt] = useState("");
+
   const [showNext, setShowNext] = useState(false);
   const [processingEntry, setProcessingEntry] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -229,6 +242,52 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           }
         );
       }, 300);
+    } else if (step === 3) {
+      setStep(4);
+      setShowNext(false);
+      setTimeout(() => {
+        enqueue(
+          [
+            "Let's talk about what you don't want your future to look like.",
+            "What's a version of your life 5 years from now that would make you feel disappointed or stuck?"
+          ],
+          () => setWaitingForAntiVisionInput(true)
+        );
+      }, 300);
+    } else if (step === 4) {
+      setStep(5);
+      setShowNext(false);
+      
+      const showFlipped = () => {
+        // Enqueue the AI asking to review the vision
+        setTimeout(() => {
+          enqueue(
+            [
+              "Here's what I came up with based on what you shared. Does this feel right?"
+            ],
+            () => {
+              setEditedVision(flippedVision || "I will continue to grow, remain present, and build a meaningful path forward.");
+              setShowVisionEditor(true);
+            }
+          );
+        }, 300);
+      };
+
+      if (isFlippingVision) {
+        // If API is still running (slow LLM response), wait for it to finish
+        const checkInterval = setInterval(() => {
+          if (!isFlippingVision) {
+            clearInterval(checkInterval);
+            showFlipped();
+          }
+        }, 500);
+      } else {
+        showFlipped();
+      }
+    } else if (step === 5) {
+      setStep(6);
+      setShowNext(false);
+      // Ready for next steps.
     }
   };
 
@@ -379,6 +438,111 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }, 400);
   };
 
+  // ── Handle Anti-Vision ───────────────────────────────────────
+  const handleAntiVisionSubmit = async () => {
+    const text = antiVisionText.trim();
+    if (!text) return;
+
+    setWaitingForAntiVisionInput(false);
+    setError(null);
+    setIsFlippingVision(true);
+
+    addOrUpdateMessage({ id: `user-antivision-${Date.now()}`, role: "user", text, isSad: true });
+
+    // Asynchronously call the vision flip API
+    fetch(`${API_BASE_URL}/profile/vision/flip`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anti_vision: text }),
+    }).then(async (res) => {
+      if (!res.ok) throw new Error("Failed to flip vision");
+      const data = await res.json();
+      setFlippedVision(data.vision);
+    }).catch((err) => {
+      console.error("Vision flip failed:", err);
+      // Fallback vision mapping 
+      setFlippedVision("I will embrace opportunities, challenge my comfort zone, and actively cultivate a life of purpose and intention.");
+    }).finally(() => {
+      setIsFlippingVision(false);
+    });
+
+    setTimeout(() => {
+      enqueue([
+        "Thank you for sharing that. That takes courage.",
+        "Let me flip this into something powerful..."
+      ], () => setShowNext(true));
+    }, 400);
+  };
+
+  const handleSkipAntiVision = () => {
+    setWaitingForAntiVisionInput(false);
+    setFlippedVision("I will focus on growth, stay present in my journey, and embrace the challenges ahead.");
+    addOrUpdateMessage({ id: `user-skip-antivision-${Date.now()}`, role: "user", text: "I'd rather not think about that right now.", isSad: true });
+    
+    setTimeout(() => {
+      enqueue(["That's completely fine. We can always explore it later.", "Let's move on..."], () => setShowNext(true));
+    }, 400);
+  };
+
+  // ── Handle Vision Editing (Step 5) ───────────────────────────────────
+  const handleVisionAccept = async () => {
+    setShowVisionEditor(false);
+    setIsSaving(true);
+    addOrUpdateMessage({ id: `user-vision-accept-${Date.now()}`, role: "user", text: "Yes, this feels right." });
+
+    try {
+      await saveProfile("vision", editedVision);
+      setIsSaving(false);
+      
+      setTimeout(() => {
+        enqueue([
+          "Vision saved.",
+          "Hold on to this. Every entry you write is a step toward this vision."
+        ], () => setShowNext(true));
+      }, 400);
+    } catch (err: any) {
+      setIsSaving(false);
+      setError(err.message || "Failed to save vision.");
+      setShowVisionEditor(true);
+    }
+  };
+
+  const handleVisionRegenerate = async () => {
+    if (!regeneratePrompt.trim()) return;
+    
+    setVisionEditorMode("view");
+    setShowVisionEditor(false);
+    setIsFlippingVision(true);
+
+    const userPrompt = regeneratePrompt.trim();
+    addOrUpdateMessage({ id: `user-regen-${Date.now()}`, role: "user", text: `Make it feel ${userPrompt}.` });
+
+    // Inform backend to adapt the vision to the feeling requested
+    const overrideAntiVision = `Original anti-vision context: ${antiVisionText}\n\nPlease regenerate the flipped vision to evoke this feeling: ${userPrompt}`;
+    
+    fetch(`${API_BASE_URL}/profile/vision/flip`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anti_vision: overrideAntiVision }),
+    }).then(async (res) => {
+      if (!res.ok) throw new Error("Failed to flip vision");
+      const data = await res.json();
+      setFlippedVision(data.vision);
+      setEditedVision(data.vision);
+    }).catch((err) => {
+      console.error("Vision flip failed:", err);
+      // Basic fallback
+      setFlippedVision(editedVision + `\n\n(Tone adjusted for: ${userPrompt})`);
+      setEditedVision(editedVision + `\n\n(Tone adjusted for: ${userPrompt})`);
+    }).finally(() => {
+      setIsFlippingVision(false);
+      setRegeneratePrompt("");
+      setTimeout(() => {
+        enqueue(["Here is the updated version. Does this feel better?"], () => setShowVisionEditor(true));
+      }, 400);
+    });
+  };
+
   // ── Backend helpers ───────────────────────────────────────────────
   const saveProfile = async (section: string, content: string) => {
     const response = await fetch(`${API_BASE_URL}/profile/${section}`, {
@@ -430,7 +594,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             }
             return msg.role === "ai"
               ? <AiMessageLine key={msg.id} text={msg.text} isTyping={msg.isTyping} />
-              : <UserMessageLine key={msg.id} text={msg.text} />;
+              : <UserMessageLine key={msg.id} text={msg.text} isSad={msg.isSad} />;
           })}
 
           {/* Journal input rendered inline in the chat */}
@@ -512,10 +676,12 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           )}
 
           {/* Processing indicator when waiting for AI analysis */}
-          {(processingEntry || isSaving) && (
+          {(processingEntry || isSaving || isFlippingVision) && (
             <div className="flex items-center gap-2 pl-4 py-2 text-sm text-muted-foreground animate-pulse">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-chart-2" />
-              <span className="font-mono text-xs">{isSaving ? "Saving…" : "Manas is thinking…"}</span>
+              <span className="font-mono text-xs">
+                {isFlippingVision ? "Manas is flipping your vision…" : isSaving ? "Saving…" : "Manas is thinking…"}
+              </span>
             </div>
           )}
         </div>
@@ -544,6 +710,117 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               autoComplete="off"
               spellCheck="false"
             />
+          </div>
+        )}
+
+        {/* Anti-Vision Input (Step 4) */}
+        {waitingForAntiVisionInput && (
+          <div className="group relative animate-in fade-in slide-in-from-bottom-2 duration-500 mb-6 max-w-xl">
+            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-slate-800" />
+            <textarea
+              autoFocus
+              value={antiVisionText}
+              onChange={(e) => setAntiVisionText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleAntiVisionSubmit();
+                }
+              }}
+              placeholder="A life where I didn't take any chances..."
+              className="w-full bg-slate-950/20 pl-4 pr-4 py-3 text-[16px] text-slate-500 placeholder:text-slate-700 font-system-serif outline-none focus:bg-slate-900/40 border border-transparent focus:border-slate-800 rounded-r-lg resize-none caret-slate-600 transition-all duration-300 min-h-[100px]"
+              autoComplete="off"
+              spellCheck="false"
+            />
+            
+            <div className="mt-3 flex items-center justify-end gap-6 pr-4">
+              <button
+                onClick={handleSkipAntiVision}
+                className="text-xs font-mono text-slate-600 hover:text-slate-400 transition-colors duration-200"
+              >
+                Skip this step
+              </button>
+              <button
+                onClick={handleAntiVisionSubmit}
+                disabled={!antiVisionText.trim()}
+                className="rounded-full border border-slate-800 bg-slate-950 px-6 py-2 text-sm font-mono text-slate-500 transition-all duration-200 hover:bg-slate-900 hover:text-slate-400 hover:border-slate-700 disabled:opacity-30 disabled:hover:bg-slate-950"
+              >
+                Reflect
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Vision Editor (Step 5) */}
+        {showVisionEditor && (
+          <div className="group relative animate-in fade-in slide-in-from-bottom-2 duration-500 mb-6 max-w-xl pl-4">
+            
+            {/* View Mode */}
+            {visionEditorMode === "view" && (
+              <div className="rounded-xl border border-white/10 bg-[oklch(0.13_0.005_260/0.55)] p-5 backdrop-blur-md shadow-xl">
+                <div className="prose prose-invert max-w-none text-sm font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                  {editedVision.split('\n').map((line, i) => <p key={i} className="my-1">{line}</p>)}
+                </div>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <button onClick={handleVisionAccept} className="flex items-center gap-2 rounded-full bg-chart-2/20 text-chart-2 border border-chart-2/30 px-4 py-2 text-xs font-medium hover:bg-chart-2/30 transition-colors">
+                    ✅ Accept
+                  </button>
+                  <button onClick={() => setVisionEditorMode("edit")} className="flex items-center gap-2 rounded-full bg-white/5 text-foreground border border-white/10 px-4 py-2 text-xs font-medium hover:bg-white/10 transition-colors">
+                    ✏️ Edit inline
+                  </button>
+                  <button onClick={() => setVisionEditorMode("regenerate")} className="flex items-center gap-2 rounded-full bg-white/5 text-foreground border border-white/10 px-4 py-2 text-xs font-medium hover:bg-white/10 transition-colors">
+                    🔄 Regenerate
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Edit Mode */}
+            {visionEditorMode === "edit" && (
+              <div className="rounded-xl border border-white/20 bg-[oklch(0.13_0.005_260/0.75)] p-2 backdrop-blur-md shadow-2xl">
+                <textarea
+                  value={editedVision}
+                  onChange={(e) => setEditedVision(e.target.value)}
+                  className="w-full bg-transparent p-3 text-sm font-mono text-foreground placeholder:text-muted-foreground/30 outline-none resize-none min-h-[150px] leading-relaxed"
+                  autoFocus
+                />
+                <div className="flex items-center justify-end gap-3 p-3 border-t border-white/10 mt-2">
+                  <button onClick={() => { setEditedVision(flippedVision || ""); setVisionEditorMode("view"); }} className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={() => setVisionEditorMode("view")} className="rounded-full bg-white/10 px-4 py-1.5 text-xs font-mono text-foreground transition-colors hover:bg-white/20">
+                    Save Edits
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Regenerate Mode */}
+            {visionEditorMode === "regenerate" && (
+              <div className="rounded-xl border border-white/10 bg-[oklch(0.13_0.005_260/0.55)] p-5 backdrop-blur-md shadow-xl">
+                <p className="font-system-serif text-foreground/90 text-sm mb-3">
+                  What's the feeling you want to have when you read this vision?
+                </p>
+                <input
+                  type="text"
+                  value={regeneratePrompt}
+                  onChange={(e) => setRegeneratePrompt(e.target.value)}
+                  placeholder="e.g. Energized, Calm, Confident..."
+                  className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:border-chart-2/50 transition-colors mb-4"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === "Enter") handleVisionRegenerate(); }}
+                />
+                <div className="flex items-center justify-end gap-3">
+                  <button onClick={() => setVisionEditorMode("view")} className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={handleVisionRegenerate} disabled={!regeneratePrompt.trim()} className="rounded-full bg-white/10 px-4 py-1.5 text-xs font-mono text-foreground transition-colors hover:bg-white/20 disabled:opacity-30">
+                    Regenerate
+                  </button>
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
@@ -579,10 +856,10 @@ function AiMessageLine({ text, isTyping }: { text: string; isTyping?: boolean })
   );
 }
 
-function UserMessageLine({ text }: { text: string }) {
+function UserMessageLine({ text, isSad }: { text: string; isSad?: boolean }) {
   return (
     <div className="py-0.5 mt-1 mb-2 animate-in fade-in slide-in-from-bottom-1 duration-300">
-      <p className="text-[17px] leading-normal text-foreground font-system-serif pl-4">
+      <p className={`text-[17px] leading-normal font-system-serif pl-4 ${isSad ? 'text-slate-500 italic' : 'text-foreground'}`}>
         {text}
       </p>
     </div>
