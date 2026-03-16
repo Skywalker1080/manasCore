@@ -85,9 +85,22 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [waitingForNameInput, setWaitingForNameInput] = useState(false);
   // step-1 journal input widget visible
   const [showJournalInput, setShowJournalInput] = useState(false);
+  // step-2 personality options visible
+  const [showPersonalityOptions, setShowPersonalityOptions] = useState(false);
+  const [selectedPersonality, setSelectedPersonality] = useState<string>("");
+  const [customPersonality, setCustomPersonality] = useState("");
+  
   const [showNext, setShowNext] = useState(false);
   const [processingEntry, setProcessingEntry] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const PERSONALITY_OPTIONS = [
+    { id: "direct", label: "Direct and challenging", desc: "(push me to think harder)" },
+    { id: "warm", label: "Warm and supportive", desc: "(be my cheerleader)" },
+    { id: "curious", label: "Curious and exploratory", desc: "(ask me questions)" },
+    { id: "calm", label: "Calm and reflective", desc: "(help me slow down)" },
+  ];
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -174,8 +187,18 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           () => setShowJournalInput(true)
         );
       }, 300);
+    } else if (step === 1) {
+      setStep(2);
+      setShowNext(false);
+      setTimeout(() => {
+        enqueue(
+          [
+            "When you're journaling, how do you want me to respond?"
+          ],
+          () => setShowPersonalityOptions(true)
+        );
+      }, 300);
     }
-    // Future steps will be added here
   };
 
   // ── Handle journal entry submit from JournalInput ─────────────────
@@ -233,6 +256,16 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
   }, [addOrUpdateMessage, enqueue]);
 
+  // ── Handle skip journal step ──────────────────────────────────────
+  const handleSkipJournal = () => {
+    setShowJournalInput(false);
+    addOrUpdateMessage({ id: `user-skip-journal-${Date.now()}`, role: "user", text: "I'll skip this for now." });
+    
+    setTimeout(() => {
+      enqueue(["No problem. You can start journaling whenever you're ready."], () => setShowNext(true));
+    }, 400);
+  };
+
   // ── Build AI reflection from the processed entry ──────────────────
   const buildReflection = (entry: JournalEntry): string[] => {
     const lines: string[] = [];
@@ -256,7 +289,75 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     return lines;
   };
 
+  // ── Handle personality submit ───────────────────────────────────────
+  const handlePersonalitySubmit = async () => {
+    setShowPersonalityOptions(false);
+    setError(null);
+    setIsSaving(true);
+
+    let personalityText = "";
+    if (selectedPersonality === "custom") {
+      personalityText = customPersonality.trim();
+    } else {
+      const opt = PERSONALITY_OPTIONS.find((o) => o.id === selectedPersonality);
+      personalityText = opt ? `You are ${opt.label.toLowerCase()}. You ${opt.desc.replace(/[()]/g, "")}.` : "";
+    }
+
+    if (!personalityText) {
+      setIsSaving(false);
+      return;
+    }
+
+    const userMsg = selectedPersonality === "custom" 
+      ? customPersonality.trim() 
+      : PERSONALITY_OPTIONS.find(o => o.id === selectedPersonality)?.label;
+      
+    addOrUpdateMessage({ id: `user-personality-${Date.now()}`, role: "user", text: userMsg || "" });
+
+    try {
+      // Create markdown structure expected by the personality profile
+      const personalityContent = `# AI Personality\n\n${personalityText}\n`;
+      // Use the generic saveProfile, which needs to be defined
+      await saveProfile("personality", personalityContent);
+      setIsSaving(false);
+
+      let aiResponse = "I hear you. I'll adapt to your style.";
+      if (selectedPersonality === "direct") aiResponse = "Got it. I won't sugarcoat things. Let's dig in.";
+      else if (selectedPersonality === "warm") aiResponse = "I'm here to support you every step of the way.";
+      else if (selectedPersonality === "curious") aiResponse = "Perfect. We'll explore the why behind everything.";
+      else if (selectedPersonality === "calm") aiResponse = "Understood. We'll take it one step at a time.";
+
+      setTimeout(() => {
+        enqueue([aiResponse], () => setShowNext(true));
+      }, 400);
+
+    } catch (err: any) {
+      setIsSaving(false);
+      setError(err.message || "Failed to save personality.");
+      setShowPersonalityOptions(true);
+    }
+  };
+
+  // ── Handle skip personality step ──────────────────────────────────
+  const handleSkipPersonality = () => {
+    setShowPersonalityOptions(false);
+    addOrUpdateMessage({ id: `user-skip-personality-${Date.now()}`, role: "user", text: "Skip this for now." });
+    
+    setTimeout(() => {
+      enqueue(["That's fine. I'll stick to my default style for now.", "What's next?"], () => setShowNext(true));
+    }, 400);
+  };
+
   // ── Backend helpers ───────────────────────────────────────────────
+  const saveProfile = async (section: string, content: string) => {
+    const response = await fetch(`${API_BASE_URL}/profile/${section}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    if (!response.ok) throw new Error(`Failed to save ${section}`);
+  };
+
   const markOnboardingComplete = async () => {
     const response = await fetch(`${API_BASE_URL}/profile/onboarding/complete`, { method: "POST" });
     if (!response.ok) throw new Error("Failed to mark onboarding complete");
@@ -302,14 +403,85 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           {showJournalInput && (
             <div className="pt-4 pb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <JournalInput onSubmit={handleJournalSubmit} />
+              <div className="mt-3 flex justify-end pr-4">
+                <button
+                  onClick={handleSkipJournal}
+                  className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors duration-200"
+                >
+                  Skip this step
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Personality Options inline in chat */}
+          {showPersonalityOptions && (
+            <div className="pt-4 pb-2 pl-4 animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-md">
+              <div className="flex flex-col gap-3">
+                {PERSONALITY_OPTIONS.map((opt) => (
+                  <label 
+                    key={opt.id} 
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPersonality === opt.id ? 'bg-chart-2/10 border-chart-2/50' : 'border-white/5 hover:bg-white/5'}`}
+                    onClick={() => setSelectedPersonality(opt.id)}
+                  >
+                    <div className="mt-0.5 flex shrink-0 items-center justify-center w-4 h-4 rounded-full border border-muted-foreground/50">
+                      {selectedPersonality === opt.id && <div className="w-2 h-2 rounded-full bg-chart-2" />}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-foreground">{opt.label}</span>
+                      <span className="text-xs text-muted-foreground">{opt.desc}</span>
+                    </div>
+                  </label>
+                ))}
+                
+                <label 
+                  className={`flex flex-col gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPersonality === 'custom' ? 'bg-chart-2/10 border-chart-2/50' : 'border-white/5 hover:bg-white/5'}`}
+                  onClick={() => {
+                    setSelectedPersonality("custom");
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 items-center justify-center w-4 h-4 rounded-full border border-muted-foreground/50">
+                      {selectedPersonality === 'custom' && <div className="w-2 h-2 rounded-full bg-chart-2" />}
+                    </div>
+                    <span className="text-sm font-medium text-foreground">Other (type your own)</span>
+                  </div>
+                  {selectedPersonality === "custom" && (
+                    <input
+                      type="text"
+                      value={customPersonality}
+                      onChange={(e) => setCustomPersonality(e.target.value)}
+                      placeholder="e.g. Sarcastic but helpful..."
+                      className="mt-2 w-full bg-transparent border-b border-border/50 py-1.5 text-sm text-foreground focus:outline-none focus:border-chart-2"
+                      autoFocus
+                    />
+                  )}
+                </label>
+
+                <div className="mt-4 flex items-center justify-end gap-6">
+                  <button
+                    onClick={handleSkipPersonality}
+                    className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors duration-200"
+                  >
+                    Skip this step
+                  </button>
+                  <button
+                    onClick={handlePersonalitySubmit}
+                    disabled={!selectedPersonality || (selectedPersonality === "custom" && !customPersonality.trim())}
+                    className="rounded-full border border-border px-6 py-2 text-sm font-mono text-foreground transition-all duration-200 hover:bg-accent hover:border-foreground/20 disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Processing indicator when waiting for AI analysis */}
-          {processingEntry && (
+          {(processingEntry || isSaving) && (
             <div className="flex items-center gap-2 pl-4 py-2 text-sm text-muted-foreground animate-pulse">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-chart-2" />
-              <span className="font-mono text-xs">Manas is thinking…</span>
+              <span className="font-mono text-xs">{isSaving ? "Saving…" : "Manas is thinking…"}</span>
             </div>
           )}
         </div>
