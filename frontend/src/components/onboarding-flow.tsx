@@ -3,8 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { JournalInput } from "@/components/journal-input";
 import { api, type JournalEntry } from "@/lib/api";
-import { Loader2, Sun, Cloud, CloudRain } from "lucide-react";
+import { Loader2, Sun, Cloud, CloudRain, Lightbulb, BookOpen } from "lucide-react";
 import { format } from "date-fns";
+import { StreakCard } from "@/components/streak-card";
+import { EmotionChart } from "@/components/emotion-chart";
 
 const API_BASE_URL = "http://localhost:8000";
 const POLL_INTERVAL_MS = 3000;
@@ -16,7 +18,7 @@ interface ChatMessage {
   text: string;
   isTyping?: boolean;
   /** Special "widget" messages rendered as something other than text */
-  widget?: "journal-input" | "entry-card";
+  widget?: "journal-input" | "entry-card" | "mock-dashboard";
   entry?: JournalEntry;
 }
 
@@ -196,6 +198,35 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             "When you're journaling, how do you want me to respond?"
           ],
           () => setShowPersonalityOptions(true)
+        );
+      }, 300);
+    } else if (step === 2) {
+      setStep(3);
+      setShowNext(false);
+      setTimeout(() => {
+        enqueue(
+          [
+            "Here's what your journal could look like in 2 weeks..."
+          ],
+          () => {
+            // Add mock dashboard widget
+            addOrUpdateMessage({
+              id: `widget-mock-dashboard-${Date.now()}`,
+              role: "ai",
+              text: "",
+              widget: "mock-dashboard"
+            });
+
+            setTimeout(() => {
+              enqueue(
+                [
+                  "This is just the beginning.",
+                  "Want to make it truly yours? Let's keep going."
+                ],
+                () => setShowNext(true)
+              );
+            }, 1000);
+          }
         );
       }, 300);
     }
@@ -393,6 +424,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           {messages.map((msg) => {
             if (msg.widget === "entry-card" && msg.entry) {
               return <EntryPreviewCard key={msg.id} entry={msg.entry} />;
+            }
+            if (msg.widget === "mock-dashboard") {
+              return <MockDashboardWidget key={msg.id} />;
             }
             return msg.role === "ai"
               ? <AiMessageLine key={msg.id} text={msg.text} isTyping={msg.isTyping} />
@@ -625,3 +659,58 @@ function EntryPreviewCard({ entry }: { entry: JournalEntry }) {
     </div>
   );
 }
+
+// ─── Mock Dashboard widget (Step 4) ──────────────────────────────────────
+function MockDashboardWidget() {
+  const MOCK_STREAK = { current_streak: 12, longest_streak: 12, total_entries: 24 };
+  const MOCK_EMOTIONS = [
+    { emotion: "reflective", count: 10 },
+    { emotion: "hopeful", count: 6 },
+    { emotion: "anxious", count: 4 },
+    { emotion: "focused", count: 4 },
+  ];
+
+  return (
+    <div className="ml-4 mt-6 mb-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 max-w-xl">
+        {/* Streak */}
+        <div className="sm:col-span-2">
+           <StreakCard data={MOCK_STREAK} />
+        </div>
+
+        {/* Emotion Chart */}
+        <div className="flex">
+           <div className="w-full">
+             <EmotionChart data={MOCK_EMOTIONS} />
+           </div>
+        </div>
+
+        {/* AI Insight & Recent Summary */}
+        <div className="flex flex-col gap-3">
+          {/* AI Generated Insight */}
+          <article className="flex-1 rounded-xl border border-white/5 bg-[oklch(0.13_0.005_260/0.55)] backdrop-blur-xl p-4 flex flex-col justify-center transition-all hover:border-white/10">
+            <div className="flex items-center gap-2 mb-2">
+              <Lightbulb className="h-4 w-4 text-chart-2/80" />
+              <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">Insight</span>
+            </div>
+            <p className="font-system-serif text-[15px] leading-snug text-foreground/80">
+              "You journal most on Sundays when you're planning your week. It seems to clear your mind for Monday."
+            </p>
+          </article>
+
+          {/* Recent Entry Summary */}
+          <article className="flex-1 rounded-xl border border-white/5 bg-[oklch(0.13_0.005_260/0.55)] backdrop-blur-xl p-4 flex flex-col justify-center transition-all hover:border-white/10">
+             <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="h-4 w-4 text-chart-1/80" />
+              <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">Recent</span>
+            </div>
+            <p className="font-mono text-xs leading-relaxed text-muted-foreground/60">
+              Felt a bit overwhelmed today, but breaking down my tasks helped me find my center.
+            </p>
+          </article>
+        </div>
+      </div>
+    </div>
+  );
+}
+
