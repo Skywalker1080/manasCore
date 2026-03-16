@@ -105,6 +105,12 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [editedVision, setEditedVision] = useState("");
   const [regeneratePrompt, setRegeneratePrompt] = useState("");
 
+  // step-6 goals
+  const [showGoalsEditor, setShowGoalsEditor] = useState(false);
+  const [goals, setGoals] = useState([
+    { id: 1, text: "" }
+  ]);
+
   const [showNext, setShowNext] = useState(false);
   const [processingEntry, setProcessingEntry] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -287,7 +293,31 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     } else if (step === 5) {
       setStep(6);
       setShowNext(false);
-      // Ready for next steps.
+      
+      const showGoals = () => {
+        setTimeout(() => {
+          enqueue(
+            [
+              "Based on your vision, let's set some goals to help you get there:"
+            ],
+            () => {
+              setShowGoalsEditor(true);
+              // after rendering goals editor, prompt the user
+              setTimeout(() => {
+                enqueue([
+                  "Write down a few goals you want to focus on."
+                ], () => setShowNext(true));
+              }, 1000);
+            }
+          );
+        }, 300);
+      };
+      
+      showGoals();
+    } else if (step === 6) {
+      setStep(7);
+      setShowNext(false);
+      // Wait for next steps.
     }
   };
 
@@ -541,6 +571,42 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         enqueue(["Here is the updated version. Does this feel better?"], () => setShowVisionEditor(true));
       }, 400);
     });
+  };
+
+  // ── Handle Goals (Step 6) ───────────────────────────────────────────
+  const handleSaveGoals = async () => {
+    setShowGoalsEditor(false);
+    setIsSaving(true);
+    addOrUpdateMessage({ id: `user-goals-accept-${Date.now()}`, role: "user", text: "These goals look great." });
+
+    try {
+      const goalsContent = `# Goals\n\n${goals.map(g => `- ${g.text}`).join('\n')}\n`;
+      await saveProfile("goals", goalsContent);
+      setIsSaving(false);
+      
+      setTimeout(() => {
+        enqueue([
+          "Goals are set! Now we have a solid foundation."
+        ], () => setShowNext(true));
+      }, 400);
+    } catch (err: any) {
+      setIsSaving(false);
+      setError(err.message || "Failed to save goals.");
+      setShowGoalsEditor(true);
+    }
+  };
+
+  const updateGoal = (id: number, text: string) => {
+    setGoals(goals.map(g => g.id === id ? { ...g, text } : g));
+  };
+
+  const removeGoal = (id: number) => {
+    setGoals(goals.filter(g => g.id !== id));
+  };
+
+  const addGoal = () => {
+    const newId = goals.length > 0 ? Math.max(...goals.map(g => g.id)) + 1 : 1;
+    setGoals([...goals, { id: newId, text: "" }]);
   };
 
   // ── Backend helpers ───────────────────────────────────────────────
@@ -821,6 +887,55 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </div>
             )}
 
+          </div>
+        )}
+
+        {/* Goals Editor (Step 6) */}
+        {showGoalsEditor && (
+          <div className="group relative animate-in fade-in slide-in-from-bottom-2 duration-500 mb-6 max-w-xl pl-4">
+            <div className="rounded-xl border border-white/10 bg-[oklch(0.13_0.005_260/0.55)] p-5 backdrop-blur-md shadow-xl flex flex-col gap-3">
+              {goals.map((goal, idx) => (
+                <div key={goal.id} className="flex items-start gap-3 group/goal">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-chart-1/10 text-chart-1/80 text-xs font-mono font-bold mt-1">
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1 relative">
+                    <textarea 
+                      value={goal.text}
+                      onChange={(e) => updateGoal(goal.id, e.target.value)}
+                      placeholder="Type a solid goal..."
+                      className="w-full bg-transparent p-2 text-sm font-system-serif text-foreground placeholder:text-muted-foreground/30 outline-none resize-none min-h-[44px] leading-relaxed border border-transparent focus:border-white/10 rounded-md transition-colors caret-chart-1"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => removeGoal(goal.id)}
+                    className="mt-2 shrink-0 p-1.5 text-muted-foreground/30 hover:text-rose-400 opacity-0 group-hover/goal:opacity-100 transition-all rounded-md hover:bg-white/5"
+                    aria-label="Remove goal"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              
+              <div className="pt-2 mt-2 border-t border-white/5">
+                <button 
+                  onClick={addGoal}
+                  className="flex items-center gap-2 text-xs font-mono tracking-wider text-muted-foreground hover:text-chart-1 transition-colors px-2 py-1"
+                >
+                  <span className="text-[14px] leading-none">+</span> Add another goal
+                </button>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button 
+                  onClick={handleSaveGoals}
+                  disabled={goals.length === 0 || goals.some(g => !g.text.trim())}
+                  className="rounded-full bg-chart-1/20 border border-chart-1/30 px-6 py-2 text-sm font-medium text-chart-1 hover:bg-chart-1/30 transition-colors disabled:opacity-30"
+                >
+                  Save Goals
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
