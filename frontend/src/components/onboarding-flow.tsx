@@ -1,19 +1,23 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { JournalInput } from "@/components/journal-input";
+import { api, type JournalEntry } from "@/lib/api";
+import { Loader2, Sun, Cloud, CloudRain } from "lucide-react";
+import { format } from "date-fns";
 
 const API_BASE_URL = "http://localhost:8000";
-
-// ─── Total onboarding steps (Welcome + 6 future steps) ────────────────
-const TOTAL_STEPS = 7;
+const POLL_INTERVAL_MS = 3000;
 
 // ─── Types ─────────────────────────────────────────────────────────────
 interface ChatMessage {
   id: string;
   role: "ai" | "user";
   text: string;
-  /** Whether this AI line is still being "typed" */
   isTyping?: boolean;
+  /** Special "widget" messages rendered as something other than text */
+  widget?: "journal-input" | "entry-card";
+  entry?: JournalEntry;
 }
 
 interface OnboardingFlowProps {
@@ -21,15 +25,10 @@ interface OnboardingFlowProps {
 }
 
 // ─── Typewriter hook ───────────────────────────────────────────────────
-/**
- * Queues an array of AI messages line-by-line with a typewriter reveal.
- * Each line appears after `delayBetween` ms, and each character within a
- * line is revealed over `typeDuration` ms total.
- */
 function useTypewriter(
   addMessage: (msg: ChatMessage) => void,
-  delayBetween = 600,
-  typeDuration = 40 // ms per character
+  delayBetween = 500,
+  typeDuration = 28
 ) {
   const queueRef = useRef<{ lines: string[]; onDone?: () => void } | null>(null);
   const runningRef = useRef(false);
@@ -52,28 +51,17 @@ function useTypewriter(
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const id = `ai-${Date.now()}-${i}`;
-
-        // Add a "typing" placeholder
         addMessage({ id, role: "ai", text: "", isTyping: true });
 
-        // Reveal characters one by one
         const chars = line.split("");
         for (let c = 0; c < chars.length; c++) {
           await wait(typeDuration);
-          addMessage({
-            id,
-            role: "ai",
-            text: line.slice(0, c + 1),
-            isTyping: c < chars.length - 1,
-          });
+          addMessage({ id, role: "ai", text: line.slice(0, c + 1), isTyping: c < chars.length - 1 });
         }
-
-        // Mark complete
         addMessage({ id, role: "ai", text: line, isTyping: false });
 
         if (i < lines.length - 1) await wait(delayBetween);
       }
-
       onDone?.();
     }
     runningRef.current = false;
@@ -93,14 +81,18 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [userName, setUserName] = useState("");
   const [inputValue, setInputValue] = useState("");
-  const [waitingForInput, setWaitingForInput] = useState(false);
+  // step-0 simple text input
+  const [waitingForNameInput, setWaitingForNameInput] = useState(false);
+  // step-1 journal input widget visible
+  const [showJournalInput, setShowJournalInput] = useState(false);
   const [showNext, setShowNext] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [processingEntry, setProcessingEntry] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const hasStartedRef = useRef(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Message management ────────────────────────────────────────────
   const addOrUpdateMessage = useCallback((msg: ChatMessage) => {
@@ -117,58 +109,50 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const enqueue = useTypewriter(addOrUpdateMessage);
 
+  // ── Cleanup poll on unmount ────────────────────────────────────────
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
   // ── Auto-scroll to bottom ──────────────────────────────────────────
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  }, [messages]);
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, showJournalInput, showNext]);
 
-  // ── Focus input when waiting ───────────────────────────────────────
+  // ── Focus name input when waiting ─────────────────────────────────
   useEffect(() => {
-    if (waitingForInput && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [waitingForInput]);
+    if (waitingForNameInput) inputRef.current?.focus();
+  }, [waitingForNameInput]);
 
   // ── Step 0: Initial greeting ───────────────────────────────────────
   useEffect(() => {
     if (hasStartedRef.current) return;
     hasStartedRef.current = true;
-
     enqueue(
       [
-        "The The fastest way to change is to obsessively reflect back on your life and do not lie to yourself of what life it is creating.",
+        "\"The fastest way to change is to obsessively reflect back on your life and do not lie to yourself of what life it is creating.\"",
         "~ Dan Koe",
-        "Welcome to manasCore",
-        "In the moments ahead, you will shape this journal to reflect your nature your ambitions, your fears, the future you seek to forge.",
-        "But first, a name. What shall I call you, seeker?"
+        "Welcome to manasCore.",
+        "In the moments ahead, you will shape this journal to reflect your nature — your ambitions, your fears, the future you seek to forge.",
+        "But first, a name. What shall I call you, seeker?",
       ],
-      () => setWaitingForInput(true)
+      () => setWaitingForNameInput(true)
     );
   }, [enqueue]);
 
-  // ── Handle user submitting their name ──────────────────────────────
+  // ── Handle name submit ────────────────────────────────────────────
   const handleNameSubmit = () => {
     const name = inputValue.trim();
     if (!name) return;
-
     setUserName(name);
-    setWaitingForInput(false);
+    setWaitingForNameInput(false);
     setInputValue("");
+    addOrUpdateMessage({ id: `user-name-${Date.now()}`, role: "user", text: name });
 
-    // Add user message bubble
-    const userMsgId = `user-${Date.now()}`;
-    addOrUpdateMessage({ id: userMsgId, role: "user", text: name });
-
-    // AI follows up
     setTimeout(() => {
       enqueue(
         [
-          `So it begins bearer of the name ${name}.`,
+          `So it begins, ${name}.`,
           "Ready to see how this works?",
         ],
         () => setShowNext(true)
@@ -176,56 +160,123 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }, 400);
   };
 
-  // ── Backend helpers (preserved from original) ──────────────────────
-  const saveProfile = async (section: string, content: string) => {
-    const response = await fetch(`${API_BASE_URL}/profile/${section}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
-    });
-    if (!response.ok) throw new Error(`Failed to save ${section}`);
+  // ── Step 1 → 2 transition ─────────────────────────────────────────
+  const handleNext = () => {
+    if (step === 0) {
+      setStep(1);
+      setShowNext(false);
+      setTimeout(() => {
+        enqueue(
+          [
+            "Let's try something quick.",
+            "Tell me about one thing on your mind today just a sentence or two.",
+          ],
+          () => setShowJournalInput(true)
+        );
+      }, 300);
+    }
+    // Future steps will be added here
   };
 
+  // ── Handle journal entry submit from JournalInput ─────────────────
+  const handleJournalSubmit = useCallback(async (content: string, modelName?: string) => {
+    setShowJournalInput(false);
+    setProcessingEntry(true);
+    setError(null);
+
+    // Show what the user wrote as a user message
+    addOrUpdateMessage({ id: `user-journal-${Date.now()}`, role: "user", text: content });
+
+    // Show "thinking" AI message
+    const thinkingId = `ai-thinking-${Date.now()}`;
+    addOrUpdateMessage({ id: thinkingId, role: "ai", text: "Thinking...", isTyping: true });
+
+    try {
+      const created = await api.createEntry(content, modelName);
+
+      // Poll until processed
+      pollRef.current = setInterval(async () => {
+        try {
+          const updated = await api.getEntry(created.id);
+          if (!updated.pending) {
+            clearInterval(pollRef.current!);
+            pollRef.current = null;
+            setProcessingEntry(false);
+
+            // Remove thinking message, show entry card
+            setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
+
+            // Add the entry preview card into the chat stream
+            addOrUpdateMessage({
+              id: `widget-entry-${updated.id}`,
+              role: "ai",
+              text: "",
+              widget: "entry-card",
+              entry: updated,
+            });
+
+            // Build AI reflection based on entry data
+            const reflection = buildReflection(updated);
+            setTimeout(() => {
+              enqueue(reflection, () => setShowNext(true));
+            }, 600);
+          }
+        } catch {
+          // transient error — keep polling
+        }
+      }, POLL_INTERVAL_MS);
+    } catch (err: any) {
+      clearInterval(pollRef.current!);
+      setProcessingEntry(false);
+      setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
+      setError(err.message || "Something went wrong. Please try again.");
+    }
+  }, [addOrUpdateMessage, enqueue]);
+
+  // ── Build AI reflection from the processed entry ──────────────────
+  const buildReflection = (entry: JournalEntry): string[] => {
+    const lines: string[] = [];
+
+    if (entry.summary) {
+      // Empathetic reflection based on sentiment
+      if (entry.sentiment !== null) {
+        if (entry.sentiment > 0.2) {
+          lines.push(`It sounds like there's something genuinely positive pulling at you right now.`);
+        } else if (entry.sentiment < -0.2) {
+          lines.push(`It sounds like you're carrying something heavy — and that's worth acknowledging.`);
+        } else {
+          lines.push(`It sounds like you're sitting in that in-between space — not great, not terrible.`);
+        }
+      }
+      lines.push(`What about this is weighing on you most right now?`);
+    } else {
+      lines.push("I see your thought. I'm still processing it fully — but I'm here.");
+    }
+
+    return lines;
+  };
+
+  // ── Backend helpers ───────────────────────────────────────────────
   const markOnboardingComplete = async () => {
-    const response = await fetch(
-      `${API_BASE_URL}/profile/onboarding/complete`,
-      { method: "POST" }
-    );
+    const response = await fetch(`${API_BASE_URL}/profile/onboarding/complete`, { method: "POST" });
     if (!response.ok) throw new Error("Failed to mark onboarding complete");
   };
 
   const handleSkip = async () => {
-    try {
-      await markOnboardingComplete();
-      onComplete();
-    } catch (err: any) {
-      setError(err.message || "Failed to skip onboarding.");
-    }
-  };
-
-  const handleNext = () => {
-    // For now only Step 0 is implemented.
-    // Future steps will extend this switch.
-    if (step === 0) {
-      setStep(1);
-      setShowNext(false);
-      // TODO: Step 1 conversation will be triggered here
-    }
+    try { await markOnboardingComplete(); onComplete(); }
+    catch (err: any) { setError(err.message || "Failed to skip onboarding."); }
   };
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      {/* ── Ambient glow (top-left) ─────────────────────────────────── */}
+      {/* Ambient glow */}
       <div
         className="pointer-events-none fixed -top-32 -left-32 h-[420px] w-[420px] rounded-full opacity-[0.07]"
-        style={{
-          background:
-            "radial-gradient(circle, oklch(0.6 0.118 184.704), transparent 70%)",
-        }}
+        style={{ background: "radial-gradient(circle, oklch(0.6 0.118 184.704), transparent 70%)" }}
       />
 
-      {/* ── Skip link (top-right) ───────────────────────────────────── */}
+      {/* Skip */}
       <div className="flex justify-end p-4">
         <button
           onClick={handleSkip}
@@ -235,23 +286,36 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         </button>
       </div>
 
-      {/* ── Chat area ───────────────────────────────────────────────── */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-6 sm:px-12 md:px-0"
-      >
+      {/* Chat area */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 sm:px-12 md:px-0">
         <div className="mx-auto max-w-2xl space-y-1 py-8">
-          {messages.map((msg) =>
-            msg.role === "ai" ? (
-              <AiMessageLine key={msg.id} text={msg.text} isTyping={msg.isTyping} />
-            ) : (
-              <UserMessageLine key={msg.id} text={msg.text} />
-            )
+          {messages.map((msg) => {
+            if (msg.widget === "entry-card" && msg.entry) {
+              return <EntryPreviewCard key={msg.id} entry={msg.entry} />;
+            }
+            return msg.role === "ai"
+              ? <AiMessageLine key={msg.id} text={msg.text} isTyping={msg.isTyping} />
+              : <UserMessageLine key={msg.id} text={msg.text} />;
+          })}
+
+          {/* Journal input rendered inline in the chat */}
+          {showJournalInput && (
+            <div className="pt-4 pb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <JournalInput onSubmit={handleJournalSubmit} />
+            </div>
+          )}
+
+          {/* Processing indicator when waiting for AI analysis */}
+          {processingEntry && (
+            <div className="flex items-center gap-2 pl-4 py-2 text-sm text-muted-foreground animate-pulse">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-chart-2" />
+              <span className="font-mono text-xs">Manas is thinking…</span>
+            </div>
           )}
         </div>
       </div>
 
-      {/* ── Input area / Next button ─────────────────────────────────── */}
+      {/* Bottom actions */}
       <div className="mx-auto w-full max-w-2xl px-6 sm:px-12 md:px-0 pb-10">
         {error && (
           <div className="mb-3 rounded-md bg-destructive/15 px-4 py-2 text-sm text-destructive">
@@ -259,7 +323,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           </div>
         )}
 
-        {waitingForInput && (
+        {/* Name input (Step 0 only) */}
+        {waitingForNameInput && (
           <div className="group relative">
             <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-chart-2/60" />
             <input
@@ -267,9 +332,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleNameSubmit();
-              }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleNameSubmit(); }}
               placeholder="Write here…"
               className="w-full bg-transparent pl-4 pr-4 py-2 text-[17px] text-foreground placeholder:text-muted-foreground/30 font-system-serif outline-none caret-chart-2 transition-colors duration-200"
               autoComplete="off"
@@ -278,6 +341,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           </div>
         )}
 
+        {/* Next button */}
         {showNext && (
           <div className="mt-6 flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-500">
             <button
@@ -295,16 +359,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
 // ─── Sub-components ─────────────────────────────────────────────────────
 
-function AiMessageLine({
-  text,
-  isTyping,
-}: {
-  text: string;
-  isTyping?: boolean;
-}) {
+function AiMessageLine({ text, isTyping }: { text: string; isTyping?: boolean }) {
   return (
     <div className="relative pl-4 py-0.5 animate-in fade-in duration-500">
-      {/* Teal left accent bar */}
       <div className="absolute left-0 top-0 bottom-0 w-[1.5px] bg-chart-2/30" />
       <p className="text-[20px] leading-snug text-foreground/90 font-system-serif tracking-tight">
         {text}
@@ -322,6 +379,77 @@ function UserMessageLine({ text }: { text: string }) {
       <p className="text-[17px] leading-normal text-foreground font-system-serif pl-4">
         {text}
       </p>
+    </div>
+  );
+}
+
+// ─── Entry preview card (mirrors previous-entries card style) ────────────
+function EntryPreviewCard({ entry }: { entry: JournalEntry }) {
+  const sentiment =
+    entry.sentiment === null ? "neutral"
+    : entry.sentiment > 0.2 ? "positive"
+    : entry.sentiment < -0.2 ? "negative"
+    : "neutral";
+
+  const sentimentConfig = {
+    positive: { icon: Sun, label: "Bright", pill: "bg-amber-500/10 border-amber-500/20 text-amber-400/80", iconColor: "text-amber-400" },
+    neutral:  { icon: Cloud, label: "Still", pill: "bg-slate-500/10 border-slate-500/20 text-slate-400/80", iconColor: "text-slate-400" },
+    negative: { icon: CloudRain, label: "Heavy", pill: "bg-rose-900/20 border-rose-700/20 text-rose-400/70", iconColor: "text-rose-400/80" },
+  };
+  const cfg = sentimentConfig[sentiment];
+  const SentimentIcon = cfg.icon;
+
+  const title = entry.title || entry.user_log.split(/[.!?]/)[0]?.trim().split(" ").slice(0, 5).join(" ") || "Untitled";
+  const timestamp = new Date(entry.date);
+
+  return (
+    <div className="ml-4 mt-3 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/40 mb-1.5 pl-0.5">
+        Here's what I captured —
+      </p>
+      <article className="rounded-xl border border-white/5 bg-[oklch(0.13_0.005_260/0.55)] backdrop-blur-xl transition-all">
+        {/* Top row */}
+        <div className="flex items-center gap-2.5 px-4 pt-3.5 pb-2">
+          <span className="flex-1 truncate font-mono text-xs font-semibold tracking-wide text-white">
+            {title}
+          </span>
+          {entry.pending ? (
+            <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-chart-1/30 bg-chart-1/10 px-2.5 py-0.5 font-mono text-[10px] tracking-wider text-chart-1/80 animate-pulse">
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              Processing
+            </span>
+          ) : entry.emotion ? (
+            <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground/50 bg-white/5 px-2 py-0.5 rounded-full">
+              {entry.emotion}
+            </span>
+          ) : null}
+          <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground/35">
+            {format(timestamp, "MMM d")}
+          </span>
+        </div>
+
+        {/* Content + sentiment */}
+        <div className="flex items-center gap-3 px-4 pb-3.5">
+          <p className="flex-1 truncate font-mono text-[11px] leading-relaxed text-muted-foreground/45">
+            {entry.user_log}
+          </p>
+          {!entry.pending && (
+            <span className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] tracking-wide ${cfg.pill}`}>
+              <SentimentIcon className={`h-2.5 w-2.5 ${cfg.iconColor}`} />
+              {cfg.label}
+            </span>
+          )}
+        </div>
+
+        {/* AI summary — shown once processed */}
+        {!entry.pending && entry.summary && (
+          <div className="px-4 pb-4 border-t border-white/5 pt-3">
+            <p className="text-[11px] leading-relaxed text-muted-foreground/50 font-mono">
+              {entry.summary}
+            </p>
+          </div>
+        )}
+      </article>
     </div>
   );
 }
