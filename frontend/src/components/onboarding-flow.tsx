@@ -1,42 +1,182 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { RefreshCcw } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 const API_BASE_URL = "http://localhost:8000";
 
-const TOTAL_STEPS = 5; // Welcome + Personality + Anti-Vision + Vision (AI) + Goals
+// ─── Total onboarding steps (Welcome + 6 future steps) ────────────────
+const TOTAL_STEPS = 7;
+
+// ─── Types ─────────────────────────────────────────────────────────────
+interface ChatMessage {
+  id: string;
+  role: "ai" | "user";
+  text: string;
+  /** Whether this AI line is still being "typed" */
+  isTyping?: boolean;
+}
 
 interface OnboardingFlowProps {
   onComplete: () => void;
 }
 
+// ─── Typewriter hook ───────────────────────────────────────────────────
+/**
+ * Queues an array of AI messages line-by-line with a typewriter reveal.
+ * Each line appears after `delayBetween` ms, and each character within a
+ * line is revealed over `typeDuration` ms total.
+ */
+function useTypewriter(
+  addMessage: (msg: ChatMessage) => void,
+  delayBetween = 600,
+  typeDuration = 40 // ms per character
+) {
+  const queueRef = useRef<{ lines: string[]; onDone?: () => void } | null>(null);
+  const runningRef = useRef(false);
+
+  const enqueue = useCallback(
+    (lines: string[], onDone?: () => void) => {
+      queueRef.current = { lines, onDone };
+      if (!runningRef.current) flush();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  const flush = useCallback(async () => {
+    runningRef.current = true;
+    while (queueRef.current) {
+      const { lines, onDone } = queueRef.current;
+      queueRef.current = null;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const id = `ai-${Date.now()}-${i}`;
+
+        // Add a "typing" placeholder
+        addMessage({ id, role: "ai", text: "", isTyping: true });
+
+        // Reveal characters one by one
+        const chars = line.split("");
+        for (let c = 0; c < chars.length; c++) {
+          await wait(typeDuration);
+          addMessage({
+            id,
+            role: "ai",
+            text: line.slice(0, c + 1),
+            isTyping: c < chars.length - 1,
+          });
+        }
+
+        // Mark complete
+        addMessage({ id, role: "ai", text: line, isTyping: false });
+
+        if (i < lines.length - 1) await wait(delayBetween);
+      }
+
+      onDone?.();
+    }
+    runningRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return enqueue;
+}
+
+function wait(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// ─── Main component ───────────────────────────────────────────────────
 export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState(0);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [userName, setUserName] = useState("");
+  const [inputValue, setInputValue] = useState("");
+  const [waitingForInput, setWaitingForInput] = useState(false);
+  const [showNext, setShowNext] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isFlipping, setIsFlipping] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Form state for each section
-  const [personality, setPersonality] = useState("");
-  const [visionAnswers, setVisionAnswers] = useState({
-    q1: "",
-    q2: "",
-  });
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const hasStartedRef = useRef(false);
 
-  // AI-generated vision (from the flip)
-  const [generatedVision, setGeneratedVision] = useState("");
-  const [visionApproved, setVisionApproved] = useState(false);
+  // ── Message management ────────────────────────────────────────────
+  const addOrUpdateMessage = useCallback((msg: ChatMessage) => {
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === msg.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = msg;
+        return copy;
+      }
+      return [...prev, msg];
+    });
+  }, []);
 
-  const [goals, setGoals] = useState("");
+  const enqueue = useTypewriter(addOrUpdateMessage);
 
-  const progress = ((step + 1) / TOTAL_STEPS) * 100;
+  // ── Auto-scroll to bottom ──────────────────────────────────────────
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages]);
 
+  // ── Focus input when waiting ───────────────────────────────────────
+  useEffect(() => {
+    if (waitingForInput && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [waitingForInput]);
+
+  // ── Step 0: Initial greeting ───────────────────────────────────────
+  useEffect(() => {
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
+
+    enqueue(
+      [
+        "The The fastest way to change is to obsessively reflect back on your life and do not lie to yourself of what life it is creating.",
+        "~ Dan Koe",
+        "Welcome to manasCore",
+        "In the moments ahead, you will shape this journal to reflect your nature your ambitions, your fears, the future you seek to forge.",
+        "But first, a name. What shall I call you, seeker?"
+      ],
+      () => setWaitingForInput(true)
+    );
+  }, [enqueue]);
+
+  // ── Handle user submitting their name ──────────────────────────────
+  const handleNameSubmit = () => {
+    const name = inputValue.trim();
+    if (!name) return;
+
+    setUserName(name);
+    setWaitingForInput(false);
+    setInputValue("");
+
+    // Add user message bubble
+    const userMsgId = `user-${Date.now()}`;
+    addOrUpdateMessage({ id: userMsgId, role: "user", text: name });
+
+    // AI follows up
+    setTimeout(() => {
+      enqueue(
+        [
+          `So it begins bearer of the name ${name}.`,
+          "Ready to see how this works?",
+        ],
+        () => setShowNext(true)
+      );
+    }, 400);
+  };
+
+  // ── Backend helpers (preserved from original) ──────────────────────
   const saveProfile = async (section: string, content: string) => {
     const response = await fetch(`${API_BASE_URL}/profile/${section}`, {
       method: "PUT",
@@ -47,9 +187,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   const markOnboardingComplete = async () => {
-    const response = await fetch(`${API_BASE_URL}/profile/onboarding/complete`, {
-      method: "POST",
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/profile/onboarding/complete`,
+      { method: "POST" }
+    );
     if (!response.ok) throw new Error("Failed to mark onboarding complete");
   };
 
@@ -62,337 +203,125 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
   };
 
-  /**
-   * Calls the backend to flip the anti-vision into a positive vision.
-   * Combines both anti-vision answers into a single block of text.
-   */
-  const hasAntiVision = () => {
-    return visionAnswers.q1.trim() !== "" || visionAnswers.q2.trim() !== "";
-  };
-
-  const flipVision = async () => {
-    const antiVisionText = [
-      visionAnswers.q1.trim(),
-      visionAnswers.q2.trim(),
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-
-    if (!antiVisionText) {
-      return false;
-    }
-
-    setIsFlipping(true);
-    setError(null);
-    try {
-      const response = await fetch(`${API_BASE_URL}/profile/vision/flip`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ anti_vision: antiVisionText }),
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.detail || "Failed to generate vision");
-      }
-      const data = await response.json();
-      setGeneratedVision(data.vision);
-      setVisionApproved(false);
-      return true;
-    } catch (err: any) {
-      setError(err.message || "Something went wrong while generating your vision.");
-      return false;
-    } finally {
-      setIsFlipping(false);
+  const handleNext = () => {
+    // For now only Step 0 is implemented.
+    // Future steps will extend this switch.
+    if (step === 0) {
+      setStep(1);
+      setShowNext(false);
+      // TODO: Step 1 conversation will be triggered here
     }
   };
 
-  const handleNext = async () => {
-    setError(null);
-
-    // When leaving the Anti-Vision step (step 2)
-    if (step === 2) {
-      if (hasAntiVision()) {
-        // Anti-vision filled in → call the AI to flip it
-        const success = await flipVision();
-        if (!success) return;
-        // Proceed to step 3 (Vision review)
-        setStep(3);
-      } else {
-        // Anti-vision left blank → skip AI call, jump straight to Goals
-        setGeneratedVision("");
-        setStep(4);
-      }
-      return;
-    }
-
-    setStep((prev) => Math.min(prev + 1, TOTAL_STEPS - 1));
-  };
-
-  const handleBack = () => {
-    setError(null);
-    // If on Goals (step 4) and anti-vision was skipped, go back to step 2
-    if (step === 4 && !hasAntiVision()) {
-      setStep(2);
-      return;
-    }
-    setStep((prev) => Math.max(prev - 1, 0));
-  };
-
-  const handleFinish = async () => {
-    setIsSaving(true);
-    setError(null);
-    try {
-      // Build and save personality.md
-      const personalityMd = `# AI Personality\n\n${personality.trim() || "No personality defined yet."}\n`;
-      await saveProfile("personality", personalityMd);
-
-      // Build and save vision.md with anti-vision + AI-generated vision
-      const visionParts: string[] = ["# Vision", ""];
-
-      if (hasAntiVision()) {
-        visionParts.push(
-          "## Anti-Vision",
-          "",
-          "### What I dislike, complain about, and want to avoid:",
-          visionAnswers.q1.trim() || "_Not answered_",
-          "",
-          "### Worst-case 5–10+ years if nothing changes:",
-          visionAnswers.q2.trim() || "_Not answered_",
-          ""
-        );
-        visionParts.push(
-          "## My Vision",
-          "",
-          generatedVision.trim() || "_No vision generated_",
-          ""
-        );
-      } else {
-        visionParts.push("_No anti-vision or vision defined yet. You can add one from the Profile page._", "");
-      }
-
-      const visionMd = visionParts.join("\n");
-      await saveProfile("vision", visionMd);
-
-      // Build and save goals.md from goals questionnaire
-      const goalsMd = [
-        "# Goals",
-        "",
-        "### What are my top 3-5 big goals (1-10 year horizon) that pull me toward this vision?",
-        goals.trim() || "_Not answered_",
-        "",
-      ].join("\n");
-      await saveProfile("goals", goalsMd);
-
-      // Mark onboarding as done
-      await markOnboardingComplete();
-      onComplete();
-    } catch (err: any) {
-      setError(err.message || "Something went wrong while saving.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleRegenerateVision = async () => {
-    await flipVision();
-  };
-
+  // ── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl shadow-2xl border-border animate-in fade-in zoom-in-95 duration-300">
-        <CardHeader className="space-y-3 pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl font-extrabold tracking-tight">
-              {step === 0 && "Welcome to AI Cognitive Journal"}
-              {step === 1 && "Step 1: Personalize your AI Journal experience."}
-              {step === 2 && "Step 2: Anti-Vision Creation"}
-              {step === 3 && "Step 3: Your Vision"}
-              {step === 4 && "Step 4: Goals"}
-            </CardTitle>
-            <span className="text-xs text-muted-foreground font-mono">
-              {step + 1}/{TOTAL_STEPS}
-            </span>
-          </div>
-          <Progress value={progress} className="h-2" />
-          <CardDescription>
-            {step === 0 && "Let's set up your cognitive profile. This helps the AI understand you better. You can always redo this from the Profile page."}
-            {step === 1 && "Define the personality of your AI assistant. How should it talk to you? What tone should it use?"}
-            {step === 2 && "Imagine your worst-case future. The \"anti-vision\" is the future you want to avoid."}
-            {step === 3 && "We flipped your anti-vision into a positive vision. Review it below — edit anything you want, then hit Next to lock it in."}
-            {step === 4 && "Reverse-engineer your vision into concrete goals. This becomes your north star."}
-          </CardDescription>
-        </CardHeader>
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      {/* ── Ambient glow (top-left) ─────────────────────────────────── */}
+      <div
+        className="pointer-events-none fixed -top-32 -left-32 h-[420px] w-[420px] rounded-full opacity-[0.07]"
+        style={{
+          background:
+            "radial-gradient(circle, oklch(0.6 0.118 184.704), transparent 70%)",
+        }}
+      />
 
-        <CardContent className="pt-4 space-y-6">
-          {error && (
-            <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
-              {error}
-            </div>
-          )}
+      {/* ── Skip link (top-right) ───────────────────────────────────── */}
+      <div className="flex justify-end p-4">
+        <button
+          onClick={handleSkip}
+          className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors duration-200"
+        >
+          Skip for now
+        </button>
+      </div>
 
-          {/* Step 0: Welcome */}
-          {step === 0 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-              <p className="text-muted-foreground leading-relaxed">
-                This short onboarding will ask you to:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                <li><strong>Define your AI&apos;s personality</strong> — how should the assistant communicate with you?</li>
-                <li><strong>Explore your anti-vision</strong> — what future do you want to avoid?</li>
-                <li><strong>AI generates your vision</strong> — your anti-vision gets flipped into motivating &quot;I&quot; statements.</li>
-                <li><strong>Set your goals</strong> — reverse-engineer your vision into actionable goals.</li>
-              </ul>
-              <p className="text-sm text-muted-foreground italic">
-                You can update all of these later from the Profile page.
-              </p>
-            </div>
-          )}
-
-          {/* Step 1: Personality */}
-          {step === 1 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="space-y-2">
-                <Label htmlFor="personality-input" className="text-base font-medium">
-                  AI Personality Description
-                </Label>
-                <Textarea
-                  id="personality-input"
-                  value={personality}
-                  onChange={(e) => setPersonality(e.target.value)}
-                  className="min-h-[200px] text-sm leading-relaxed"
-                  placeholder={`Example:\nYou are a calm, thoughtful assistant. You speak concisely but with warmth. You challenge me when I'm being complacent, but always with empathy. You prefer bullet points over long paragraphs. You remember that I value honesty over comfort.`}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Anti-Vision */}
-          {step === 2 && (
-            <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="space-y-2">
-                <Label htmlFor="vision-q1" className="text-sm font-medium leading-relaxed">
-                  List everything you hate/dislike/complain about in your current/past life. 
-                  Observe societal &quot;default&quot; paths (mediocrity, breaking down, dead inside).
-                </Label>
-                <Textarea
-                  id="vision-q1"
-                  value={visionAnswers.q1}
-                  onChange={(e) => setVisionAnswers({ ...visionAnswers, q1: e.target.value })}
-                  className="min-h-[100px] text-sm"
-                  placeholder="Habits, relationships, work, societal defaults..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="vision-q2" className="text-sm font-medium leading-relaxed">
-                  Project the above worst-case 5–10+ years ahead if unchanged.
-                </Label>
-                <Textarea
-                  id="vision-q2"
-                  value={visionAnswers.q2}
-                  onChange={(e) => setVisionAnswers({ ...visionAnswers, q2: e.target.value })}
-                  className="min-h-[100px] text-sm"
-                  placeholder="Where does this path lead in a decade?"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Vision (AI-generated, editable) */}
-          {step === 3 && (
-            <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-              {isFlipping ? (
-                <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                  <div className="relative">
-                    <div className="h-10 w-10 rounded-full border-4 border-muted border-t-primary animate-spin" />
-                  </div>
-                  <p className="text-sm text-muted-foreground animate-pulse">
-                    Flipping your anti-vision into your ideal life...
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="generated-vision" className="text-sm font-medium">
-                        Your AI-Generated Vision
-                      </Label>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleRegenerateVision}
-                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-2"
-                      >
-                        <RefreshCcw className="h-3 w-3" />
-                        Regenerate
-                      </Button>
-                    </div>
-                    <Textarea
-                      id="generated-vision"
-                      value={generatedVision}
-                      onChange={(e) => {
-                        setGeneratedVision(e.target.value);
-                        setVisionApproved(false);
-                      }}
-                      className="min-h-[200px] text-sm leading-relaxed"
-                      placeholder="Your vision will appear here after processing..."
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground italic">
-                    Feel free to edit, add, or remove any bullet points. This is <strong>your</strong> vision — make it resonate.
-                  </p>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Step 4: Goals */}
-          {step === 4 && (
-            <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="space-y-2">
-                <Label htmlFor="goals-input" className="text-sm font-medium">
-                  What are your top 3-5 big goals (1-10 year horizon) that pull you toward this vision?
-                </Label>
-                <Textarea
-                  id="goals-input"
-                  value={goals}
-                  onChange={(e) => setGoals(e.target.value)}
-                  className="min-h-[250px] text-sm leading-relaxed"
-                  placeholder={`Make them specific, outcome-focused, and exciting—e.g., "Build a business generating $X/month in income," "Achieve [fitness milestone]," "Deepen my primary relationship through [action]." Reverse-engineer from vision: what milestones close the gap from current to ideal?`}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Navigation Buttons */}
-          <div className="flex justify-between items-center pt-4 border-t">
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={handleBack}
-                disabled={step === 0 || isFlipping}
-              >
-                Back
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={handleSkip}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Skip for now
-              </Button>
-            </div>
-            {step < TOTAL_STEPS - 1 ? (
-              <Button onClick={handleNext} disabled={isFlipping}>
-                {step === 0 ? "Get Started" : isFlipping ? "Processing..." : "Next"}
-              </Button>
+      {/* ── Chat area ───────────────────────────────────────────────── */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-6 sm:px-12 md:px-0"
+      >
+        <div className="mx-auto max-w-2xl space-y-1 py-8">
+          {messages.map((msg) =>
+            msg.role === "ai" ? (
+              <AiMessageLine key={msg.id} text={msg.text} isTyping={msg.isTyping} />
             ) : (
-              <Button onClick={handleFinish} disabled={isSaving}>
-                {isSaving ? "Saving..." : "Complete Setup"}
-              </Button>
-            )}
+              <UserMessageLine key={msg.id} text={msg.text} />
+            )
+          )}
+        </div>
+      </div>
+
+      {/* ── Input area / Next button ─────────────────────────────────── */}
+      <div className="mx-auto w-full max-w-2xl px-6 sm:px-12 md:px-0 pb-10">
+        {error && (
+          <div className="mb-3 rounded-md bg-destructive/15 px-4 py-2 text-sm text-destructive">
+            {error}
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        {waitingForInput && (
+          <div className="group relative">
+            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-chart-2/60" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleNameSubmit();
+              }}
+              placeholder="Write here…"
+              className="w-full bg-transparent pl-4 pr-4 py-2 text-[17px] text-foreground placeholder:text-muted-foreground/30 font-system-serif outline-none caret-chart-2 transition-colors duration-200"
+              autoComplete="off"
+              spellCheck="false"
+            />
+          </div>
+        )}
+
+        {showNext && (
+          <div className="mt-6 flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <button
+              onClick={handleNext}
+              className="rounded-full border border-border px-8 py-2.5 text-sm font-mono text-foreground transition-all duration-200 hover:bg-accent hover:border-foreground/20"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Sub-components ─────────────────────────────────────────────────────
+
+function AiMessageLine({
+  text,
+  isTyping,
+}: {
+  text: string;
+  isTyping?: boolean;
+}) {
+  return (
+    <div className="relative pl-4 py-0.5 animate-in fade-in duration-500">
+      {/* Teal left accent bar */}
+      <div className="absolute left-0 top-0 bottom-0 w-[1.5px] bg-chart-2/30" />
+      <p className="text-[20px] leading-snug text-foreground/90 font-system-serif tracking-tight">
+        {text}
+        {isTyping && (
+          <span className="ml-1 inline-block h-[18px] w-[2px] bg-chart-2 animate-pulse align-middle" />
+        )}
+      </p>
+    </div>
+  );
+}
+
+function UserMessageLine({ text }: { text: string }) {
+  return (
+    <div className="py-0.5 mt-1 mb-2 animate-in fade-in slide-in-from-bottom-1 duration-300">
+      <p className="text-[17px] leading-normal text-foreground font-system-serif pl-4">
+        {text}
+      </p>
     </div>
   );
 }
