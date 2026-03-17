@@ -209,7 +209,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         enqueue(
           [
             "Let's try something quick.",
-            "Tell me about one thing on your mind today just a sentence or two.",
+            "Tell me about one thing on your mind today just a sentence or two. This can be anything.",
           ],
           () => setShowJournalInput(true)
         );
@@ -331,7 +331,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         enqueue(
           [
             `You're all set, ${userName}!`,
-            `Your journal is now personalized to help you ${cleanGoal}.`,
+            `Your journal is now personalized to align with you Vision and Goals.`,
             "Want to write your first real entry now?"
           ],
           () => setShowFinalActions(true)
@@ -420,9 +420,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           lines.push(`It sounds like you're sitting in that in-between space — not great, not terrible.`);
         }
       }
-      lines.push(`What about this is weighing on you most right now?`);
+      lines.push(`This is how your journal entry will look like. Let's proceed.`);
     } else {
-      lines.push("I see your thought. I'm still processing it fully — but I'm here.");
+      lines.push("I see your thought. I'm still processing it fully but I'm here.");
     }
 
     return lines;
@@ -546,7 +546,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       setTimeout(() => {
         enqueue([
           "Vision saved.",
-          "Hold on to this. Every entry you write is a step toward this vision."
+          "Hold on to this. Every entry you write you are bridging the gap between your Anti Vision and Vision."
         ], () => setShowNext(true));
       }, 400);
     } catch (err: any) {
@@ -824,8 +824,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
         {/* Anti-Vision Input (Step 4) */}
         {waitingForAntiVisionInput && (
-          <div className="group relative animate-in fade-in slide-in-from-bottom-2 duration-500 mb-6 max-w-xl">
-            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-slate-800" />
+          <div className="group relative animate-in fade-in slide-in-from-bottom-2 duration-1000 mb-6 max-w-xl opacity-90">
             <textarea
               autoFocus
               value={antiVisionText}
@@ -837,24 +836,24 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 }
               }}
               placeholder="A life where I didn't take any chances..."
-              className="w-full bg-slate-950/20 pl-4 pr-4 py-3 text-[16px] text-slate-500 placeholder:text-slate-700 font-system-serif outline-none focus:bg-slate-900/40 border border-transparent focus:border-slate-800 rounded-r-lg resize-none caret-slate-600 transition-all duration-300 min-h-[100px]"
+              className="w-full bg-zinc-900/10 p-5 text-[16px] text-zinc-400 placeholder:text-zinc-700 font-system-serif outline-none border border-zinc-800/30 focus:border-zinc-700/50 rounded-sm resize-none caret-zinc-500 transition-all duration-700 min-h-[140px]"
               autoComplete="off"
               spellCheck="false"
             />
             
-            <div className="mt-3 flex items-center justify-end gap-6 pr-4">
+            <div className="mt-3 flex items-center justify-end gap-6">
               <button
                 onClick={handleSkipAntiVision}
-                className="text-xs font-mono text-slate-600 hover:text-slate-400 transition-colors duration-200"
+                className="text-xs font-mono text-zinc-600 hover:text-zinc-500 transition-colors duration-500 lowercase opacity-70 hover:opacity-100"
               >
-                Skip this step
+                skip
               </button>
               <button
                 onClick={handleAntiVisionSubmit}
                 disabled={!antiVisionText.trim()}
-                className="rounded-full border border-slate-800 bg-slate-950 px-6 py-2 text-sm font-mono text-slate-500 transition-all duration-200 hover:bg-slate-900 hover:text-slate-400 hover:border-slate-700 disabled:opacity-30 disabled:hover:bg-slate-950"
+                className="px-5 py-1.5 text-sm font-mono text-zinc-500 transition-all duration-500 hover:text-zinc-400 disabled:opacity-20 lowercase tracking-wide"
               >
-                Reflect
+                reflect
               </button>
             </div>
           </div>
@@ -872,13 +871,13 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 </div>
                 <div className="mt-6 flex flex-wrap items-center gap-3">
                   <button onClick={handleVisionAccept} className="flex items-center gap-2 rounded-full bg-chart-2/20 text-chart-2 border border-chart-2/30 px-4 py-2 text-xs font-medium hover:bg-chart-2/30 transition-colors">
-                    ✅ Accept
+                    Accept
                   </button>
                   <button onClick={() => setVisionEditorMode("edit")} className="flex items-center gap-2 rounded-full bg-white/5 text-foreground border border-white/10 px-4 py-2 text-xs font-medium hover:bg-white/10 transition-colors">
-                    ✏️ Edit inline
+                    Edit inline
                   </button>
                   <button onClick={() => setVisionEditorMode("regenerate")} className="flex items-center gap-2 rounded-full bg-white/5 text-foreground border border-white/10 px-4 py-2 text-xs font-medium hover:bg-white/10 transition-colors">
-                    🔄 Regenerate
+                    Regenerate
                   </button>
                 </div>
               </div>
@@ -988,14 +987,15 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             <button
               onClick={handleFinish}
               disabled={isSaving}
-              className="group relative flex w-full max-w-sm items-center justify-center gap-3 overflow-hidden rounded-full bg-chart-1 px-8 py-3.5 text-sm font-semibold text-primary-foreground shadow-xl transition-all hover:bg-chart-1/90 disabled:opacity-50"
+              className="group relative flex w-full max-w-sm items-center justify-center gap-3 overflow-hidden rounded-full border border-amber-500/20 bg-amber-500/10 px-8 py-3.5 text-sm font-semibold shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all hover:bg-amber-500/20 hover:border-amber-500/40 hover:shadow-[0_0_25px_rgba(245,158,11,0.15)] disabled:opacity-50 text-amber-200/90 hover:text-amber-100"
             >
-              Let's do it
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-amber-600/10 opacity-50 transition-opacity duration-300 group-hover:opacity-100" />
+              <span className="relative z-10 tracking-wide font-system-serif text-[16px]">Let's do it</span>
             </button>
             <button
               onClick={handleStartLater}
               disabled={isSaving}
-              className="text-xs font-mono tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+              className="text-xs font-mono tracking-wider text-muted-foreground hover:text-amber-400/70 transition-colors"
             >
               I'll start later
             </button>
@@ -1007,7 +1007,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           <div className="mt-6 flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-500">
             <button
               onClick={handleNext}
-              className="rounded-full border border-border px-8 py-2.5 text-sm font-mono text-foreground transition-all duration-200 hover:bg-accent hover:border-foreground/20"
+              className="group relative overflow-hidden rounded-full border border-amber-500/20 bg-amber-500/5 px-8 py-2.5 text-sm font-mono text-amber-400/80 transition-all duration-300 hover:bg-amber-500/20 hover:border-amber-500/40 hover:text-amber-200 hover:shadow-[0_0_15px_rgba(245,158,11,0.1)]"
             >
               Next
             </button>
