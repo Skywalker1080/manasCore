@@ -331,8 +331,25 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         enqueue(
           [
             `You're all set, ${userName}!`,
+            `What we did is, built you Anti Vision the exact future you want to avoid`,
+            `Then we flipped you Anti vision to your Vision this is the exact life you want to head towards`,
             `Your journal is now personalized to align with you Vision and Goals.`,
-            "Want to write your first real entry now?"
+            `Before we finish our onboarding let me tell you some of the features of your journal`
+          ],
+          () => setShowNext(true)
+        );
+      }, 300);
+    } else if (step === 7) {
+      setStep(8);
+      setShowNext(false);
+
+      setTimeout(() => {
+        enqueue(
+          [
+            "manasCore is a local first AI Journal, it is completely safe and local, full privacy of your data.",
+            "Moreover you can use Gemini models via api key or any local models via ollama.",
+            "The journal is also powered by local RAG system so you can chat with it and ask about any journal entry.",
+            "Cool, Want to write your first real entry now?"
           ],
           () => setShowFinalActions(true)
         );

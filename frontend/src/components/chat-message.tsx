@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
 import type { ChatSource } from "@/lib/api";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -17,19 +18,6 @@ export function ChatMessage({
   isStreaming,
 }: ChatMessageProps) {
   const isUser = role === "user";
-
-  // Simple markdown-ish rendering for AI messages
-  const formattedContent = useMemo(() => {
-    if (isUser) return content;
-
-    return content
-      // Bold
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      // Italic
-      .replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, "<em>$1</em>")
-      // Line breaks
-      .replace(/\n/g, "<br />");
-  }, [content, isUser]);
 
   return (
     <div
@@ -55,10 +43,11 @@ export function ChatMessage({
         {isUser ? (
           <p className="whitespace-pre-wrap">{content}</p>
         ) : (
-          <div
-            className="prose-sm prose-invert max-w-none [&>br+br]:mt-2"
-            dangerouslySetInnerHTML={{ __html: formattedContent }}
-          />
+          <div className="prose prose-sm prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-a:text-emerald-400">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {content}
+            </ReactMarkdown>
+          </div>
         )}
 
         {/* Streaming cursor */}
