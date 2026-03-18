@@ -2,11 +2,14 @@
 
 import { useState, useRef, forwardRef, useImperativeHandle } from "react"
 import { ArrowUp, Loader2, Sparkles } from "lucide-react"
+import Image from "next/image"
 import { ModelSelector } from "@/components/model-selector"
 
 interface JournalInputProps {
   onSubmit: (entry: string, modelName?: string) => void
   pendingCount?: number
+  placeholder?: string
+  distractionFree?: boolean
 }
 
 export interface JournalInputHandle {
@@ -16,7 +19,7 @@ export interface JournalInputHandle {
 
 
 export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
-  function JournalInput({ onSubmit, pendingCount = 0 }, ref) {
+  function JournalInput({ onSubmit, pendingCount = 0, placeholder, distractionFree = true }, ref) {
     const [value, setValue] = useState("")
     const [isFocused, setIsFocused] = useState(false)
     const [submitting, setSubmitting] = useState(false)
@@ -73,21 +76,24 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
     return (
       <>
         {/* Distraction-free overlay */}
-        <div
-          className={`fixed inset-0 bg-background/95 backdrop-blur-sm transition-all duration-700 ease-in-out ${
-            isFocused
-              ? "z-40 opacity-100 pointer-events-auto"
-              : "-z-10 opacity-0 pointer-events-none"
-          }`}
-          aria-hidden="true"
-        />
+        {distractionFree && (
+          <div
+            className={`fixed inset-0 bg-background/95 backdrop-blur-sm transition-all duration-700 ease-in-out ${
+              isFocused
+                ? "z-40 opacity-100 pointer-events-auto"
+                : "-z-10 opacity-0 pointer-events-none"
+            }`}
+            aria-hidden="true"
+          />
+        )}
 
-        <div className={`mx-auto w-full max-w-2xl px-6 md:px-0 relative transition-all duration-500 ${isFocused ? "z-50" : "z-10"}`}>
+        <div className={`mx-auto w-full max-w-2xl px-6 md:px-0 relative transition-all duration-500 ${distractionFree && isFocused ? "z-50" : "z-10"}`}>
           {/* Model selector row */}
-          <div className={`relative z-20 mb-2 flex items-center justify-end transition-all duration-500 ${isFocused ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100 translate-y-0"}`}>
+          <div className={`relative z-20 mb-2 flex items-center justify-end transition-all duration-500 ${distractionFree && isFocused ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100 translate-y-0"}`}>
             <ModelSelector
               value={selectedModel}
               onChange={setSelectedModel}
+              disabled={submitting}
             />
           </div>
 
@@ -103,9 +109,10 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
             onInput={handleInput}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder="What's on your mind tonight..."
+            placeholder={placeholder || "What's on your mind tonight..."}
             rows={1}
-            className="w-full resize-none bg-transparent px-5 pt-4 pb-12 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none md:text-lg"
+            disabled={submitting}
+            className="w-full resize-none bg-transparent px-5 pt-4 pb-12 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none md:text-lg disabled:opacity-50"
           />
           <div className="absolute right-3 bottom-3 flex items-center gap-2">
             <span className="text-xs tracking-wider text-muted-foreground/40 font-mono">
@@ -136,9 +143,9 @@ export const JournalInput = forwardRef<JournalInputHandle, JournalInputProps>(
             <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
               <div className="absolute inset-0 animate-ping rounded-full bg-chart-1/20" />
               {selectedModel ? (
-                <img src="/ollama.svg" alt="Ollama" className="h-4 w-4 object-contain invert dark:invert-0" />
+                <Image src="/ollama.svg" alt="Ollama" width={16} height={16} className="h-4 w-4 object-contain invert dark:invert-0" />
               ) : (
-                <img src="/gemini.svg" alt="Gemini" className="h-4 w-4 object-contain" />
+                <Image src="/gemini.svg" alt="Gemini" width={16} height={16} className="h-4 w-4 object-contain" />
               )}
             </div>
             <div className="flex flex-col gap-0.5">

@@ -2,11 +2,11 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Send, Sparkles, MessageCircle, Trash2, Activity, Target, BookOpen, Lightbulb, Flame, Zap, Route, History, ArrowLeft } from "lucide-react";
+import { Sparkles, MessageCircle, Trash2, Activity, Target, BookOpen, Lightbulb, Flame, Zap, Route, History, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage, TypingIndicator } from "@/components/chat-message";
-import { ModelSelector } from "@/components/model-selector";
+import { JournalInput, type JournalInputHandle } from "@/components/journal-input";
 import {
   api,
   type ChatHistoryMessage,
@@ -114,13 +114,10 @@ function ChatPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("");
   const [entryContext, setEntryContext] = useState<EntryContext | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const journalInputRef = useRef<JournalInputHandle>(null);
   const entryInitialized = useRef(false);
 
   // Parse entry context from URL params
@@ -147,7 +144,7 @@ function ChatPageContent() {
 
   // Focus input on mount
   useEffect(() => {
-    inputRef.current?.focus();
+    journalInputRef.current?.focus();
   }, []);
 
   const generateId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -159,11 +156,9 @@ function ChatPageContent() {
   }, [messages]);
 
   const handleSend = useCallback(
-    async (messageText?: string) => {
-      const text = (messageText || input).trim();
+    async (messageText: string, overrideModel?: string) => {
+      const text = messageText.trim();
       if (!text || isStreaming) return;
-
-      setInput("");
 
       // Add user message
       const userMsg: Message = {
@@ -189,8 +184,8 @@ function ChatPageContent() {
 
         // Choose the appropriate streaming endpoint
         const streamGenerator = entryContext
-          ? api.streamEntryChatMessage(text, entryContext, history, selectedModel || undefined)
-          : api.streamChatMessage(text, history, selectedModel || undefined);
+          ? api.streamEntryChatMessage(text, entryContext, history, overrideModel || undefined)
+          : api.streamChatMessage(text, history, overrideModel || undefined);
 
         for await (const event of streamGenerator) {
           const e = event as ChatStreamEvent;
@@ -255,18 +250,11 @@ function ChatPageContent() {
         );
       } finally {
         setIsStreaming(false);
-        inputRef.current?.focus();
+        journalInputRef.current?.focus();
       }
     },
-    [input, isStreaming, buildHistory, entryContext, selectedModel]
+    [isStreaming, buildHistory, entryContext]
   );
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
 
   const clearChat = () => {
     setMessages([]);
@@ -275,7 +263,7 @@ function ChatPageContent() {
       entryInitialized.current = false;
       router.replace("/chat");
     }
-    inputRef.current?.focus();
+    journalInputRef.current?.focus();
   };
 
   const isEmpty = messages.length === 0;
@@ -439,44 +427,12 @@ function ChatPageContent() {
               </button>
             </div>
           )}
-          <div className="relative flex items-end gap-2 rounded-2xl border border-border/30 bg-card/40 px-4 py-3 backdrop-blur-md shadow-lg shadow-background/50 focus-within:border-border/50 transition-colors">
-            <MessageCircle className="mb-1 h-4 w-4 shrink-0 text-muted-foreground/30" />
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={entryContext ? "Ask about this entry..." : "Ask about your journal..."}
-              rows={1}
-              disabled={isStreaming}
-              className="flex-1 resize-none bg-transparent text-sm text-foreground/90 placeholder:text-muted-foreground/30 focus:outline-none disabled:opacity-50 max-h-32"
-              style={{
-                height: "auto",
-                minHeight: "24px",
-              }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = "auto";
-                target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
-              }}
-            />
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <ModelSelector
-                value={selectedModel}
-                onChange={setSelectedModel}
-                disabled={isStreaming}
-                compact
-              />
-              <Button
-                size="sm"
-                onClick={() => handleSend()}
-                disabled={!input.trim() || isStreaming}
-                className="h-8 w-8 shrink-0 rounded-xl bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border-0 transition-all duration-200 disabled:opacity-20"
-              >
-                <Send className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
+          <JournalInput
+            ref={journalInputRef}
+            onSubmit={(text, model) => handleSend(text, model)}
+            placeholder={entryContext ? "Ask about this entry..." : "Ask about your journal..."}
+            distractionFree={false}
+          />
           <p className="mt-2 text-center text-[10px] text-muted-foreground/30">
             {entryContext
               ? "Responses are focused on this specific journal entry"
