@@ -1,6 +1,6 @@
 "use client";
 
-import { User, BarChart3, MessageCircle } from "lucide-react";
+import { User, BarChart3, MessageCircle, BookOpen } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import logo from "../../public/manasCore.png";
@@ -22,6 +22,13 @@ export function Header() {
         <span className="text-xl font-serif tracking-tight text-foreground/90">manasCore</span>
       </Link>
       <nav className="flex items-center gap-2">
+        <Link
+          href="/entries"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border/50 bg-secondary/40 text-foreground/60 transition-colors hover:bg-secondary hover:text-foreground"
+          aria-label="Journal Entries"
+        >
+          <BookOpen className="h-4 w-4" />
+        </Link>
         <Link
           href="/dashboard"
           className="flex h-9 w-9 items-center justify-center rounded-full border border-border/50 bg-secondary/40 text-foreground/60 transition-colors hover:bg-secondary hover:text-foreground"
