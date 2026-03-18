@@ -98,7 +98,7 @@ function ProfileSection({ section, title, description, refreshKey }: { section: 
     <Card className="border-border">
       <CardHeader className="flex flex-row items-start justify-between space-y-0.5 pb-4">
         <div>
-          <CardTitle className="font-serif text-xl tracking-tight text-foreground/90 md:text-2xl">{title}</CardTitle>
+          <CardTitle className="font-system-serif text-xl font-normal leading-6 tracking-tight text-foreground/90 md:text-2xl">{title}</CardTitle>
           <CardDescription className="mt-1 flex items-center gap-2">
             {description}
           </CardDescription>
@@ -226,8 +226,7 @@ function AIConfigSection() {
   return (
     <Card className="border-border">
       <CardHeader>
-        <CardTitle className="text-2xl flex items-center gap-2">
-          <Server className="h-5 w-5 text-muted-foreground" />
+        <CardTitle className="font-system-serif text-xl font-normal leading-6 tracking-tight text-foreground/90 md:text-2xl flex items-center gap-2">
           AI Configuration
         </CardTitle>
         <CardDescription>
@@ -359,7 +358,7 @@ export default function ProfilePage() {
       <div className="mx-auto pt-24 pb-10 max-w-4xl px-6 md:px-10">
         <div className="mb-8 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div className="space-y-2">
-            <h1 className="font-serif text-3xl tracking-tight text-foreground/90 md:text-4xl">Cognitive Profile</h1>
+            <h1 className="font-system-serif text-3xl leading-6 tracking-tight text-foreground/90">Cognitive Profile</h1>
             <p className="text-muted-foreground text-sm">
               Manage your AI's understanding of your personality, goals, and long-term vision.
             </p>

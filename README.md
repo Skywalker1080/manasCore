@@ -29,6 +29,22 @@ You can set up your API keys and models directly from the **Profile > Settings**
    ```
 3. Ensure Ollama is running in the background.
 
+## Prerequisites
+
+### 1. Install `uv` (Fast Python Package Manager)
+
+`uv` is required to manage the backend dependencies.
+
+- **macOS & Linux:**
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+
+- **Windows:**
+  ```powershell
+  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+  ```
+
 ## How to Run
 
 1. **Install dependencies** (from the project root):
