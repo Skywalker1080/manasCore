@@ -43,16 +43,17 @@ export default function Home() {
   const [notification, setNotification] = useState<Notification>(null)
   const [entryNumber, setEntryNumber] = useState<number | null>(null)
   const [pendingCount, setPendingCount] = useState(0)
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
+
   const journalRef = useRef<JournalPaperHandle>(null)
   const dismissTimer = useRef<ReturnType<typeof setTimeout>>(null)
   const pendingPolls = useRef<Map<number, ReturnType<typeof setInterval>>>(new Map())
 
-  const now = new Date()
-  const formattedDate = formatJournalDate(now)
-  const formattedTime = formatTime(now)
-
   // Fetch total entry count on mount
   useEffect(() => {
+    setCurrentTime(new Date())
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+
     async function fetchEntryCount() {
       try {
         const streak = await api.getStreak()
@@ -64,10 +65,14 @@ export default function Home() {
     fetchEntryCount()
 
     return () => {
+      clearInterval(timer)
       pendingPolls.current.forEach((interval) => clearInterval(interval))
       pendingPolls.current.clear()
     }
   }, [])
+
+  const formattedDate = currentTime ? formatJournalDate(currentTime) : "—"
+  const formattedTime = currentTime ? formatTime(currentTime) : "—"
 
   // Auto-dismiss non-processing notifications
   useEffect(() => {
