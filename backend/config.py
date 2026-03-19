@@ -1,7 +1,6 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings
 from typing import Optional
-import os
 import re
 
 # Resolve paths relative to the project root (parent of backend/)

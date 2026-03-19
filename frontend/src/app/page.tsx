@@ -1,14 +1,10 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { JournalInput, type JournalInputHandle } from "@/components/journal-input"
-import { PreviousEntries } from "@/components/previous-entries"
-import { PromptSuggestions } from "@/components/prompt-suggestions"
-import { api, type JournalEntry } from "@/lib/api"
-import { CheckCircle2, XCircle, Loader2, Sparkles } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
+import { api } from "@/lib/api"
+import { JournalPaper, type JournalPaperHandle } from "@/components/journal-paper"
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react"
 
-const PAGE_SIZE = 5
 const POLL_INTERVAL_MS = 3000
 
 type Notification = {
@@ -16,32 +12,58 @@ type Notification = {
   message: string
 } | null
 
-const TAGLINES = [
-  "Player One, ready?",
-  "Directed by you",
-  "The glitch in your matrix",
-  "What lingers within you?",
-]
+function getOrdinalSuffix(day: number): string {
+  if (day >= 11 && day <= 13) return "th"
+  switch (day % 10) {
+    case 1: return "st"
+    case 2: return "nd"
+    case 3: return "rd"
+    default: return "th"
+  }
+}
+
+function formatJournalDate(date: Date): string {
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ]
+  const dayName = days[date.getDay()]
+  const monthName = months[date.getMonth()]
+  const day = date.getDate()
+  const year = date.getFullYear()
+  return `${dayName}, ${monthName} ${day}${getOrdinalSuffix(day)}, ${year}`
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
+}
 
 export default function Home() {
-  const [entries, setEntries] = useState<JournalEntry[]>([])
-  const [initialLoading, setInitialLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
   const [notification, setNotification] = useState<Notification>(null)
-  const journalInputRef = useRef<JournalInputHandle>(null)
-  const [tagline] = useState(() => TAGLINES[Math.floor(Math.random() * TAGLINES.length)])
+  const [entryNumber, setEntryNumber] = useState<number | null>(null)
+  const [pendingCount, setPendingCount] = useState(0)
+  const journalRef = useRef<JournalPaperHandle>(null)
   const dismissTimer = useRef<ReturnType<typeof setTimeout>>(null)
   const pendingPolls = useRef<Map<number, ReturnType<typeof setInterval>>>(new Map())
 
-  // Track how many entries are currently processing
-  const pendingCount = entries.filter((e) => e.pending).length
+  const now = new Date()
+  const formattedDate = formatJournalDate(now)
+  const formattedTime = formatTime(now)
 
-  // Fetch entries on mount
+  // Fetch total entry count on mount
   useEffect(() => {
-    fetchEntries()
+    async function fetchEntryCount() {
+      try {
+        const streak = await api.getStreak()
+        setEntryNumber(streak.total_entries + 1)
+      } catch {
+        setEntryNumber(1)
+      }
+    }
+    fetchEntryCount()
+
     return () => {
-      // Cleanup all polling intervals on unmount
       pendingPolls.current.forEach((interval) => clearInterval(interval))
       pendingPolls.current.clear()
     }
@@ -58,71 +80,31 @@ export default function Home() {
     }
   }, [notification])
 
-  // Update processing notification whenever pending count changes
+  // Update processing notification
   useEffect(() => {
     if (pendingCount > 0) {
       setNotification({
         type: "processing",
-        message: pendingCount === 1
-          ? "Manas is analyzing your entry…"
-          : `Manas is analyzing ${pendingCount} entries…`,
+        message:
+          pendingCount === 1
+            ? "Manas is analyzing your entry…"
+            : `Manas is analyzing ${pendingCount} entries…`,
       })
     } else {
-      // Clear "processing" notification when all done
-      setNotification((prev) =>
-        prev?.type === "processing" ? null : prev
-      )
+      setNotification((prev) => (prev?.type === "processing" ? null : prev))
     }
   }, [pendingCount])
 
-  async function fetchEntries() {
-    try {
-      const data = await api.getEntries(0, PAGE_SIZE)
-      setEntries(data)
-      setHasMore(data.length >= PAGE_SIZE)
-      // Start polling for any entries that are already pending
-      data.filter((e) => e.pending).forEach((e) => startPolling(e.id))
-    } catch (error) {
-      console.error("Error fetching entries:", error)
-    } finally {
-      setInitialLoading(false)
-    }
-  }
-
-  async function loadMore() {
-    setLoadingMore(true)
-    try {
-      const data = await api.getEntries(entries.length, PAGE_SIZE)
-      setEntries((prev) => [...prev, ...data])
-      setHasMore(data.length >= PAGE_SIZE)
-      // Start polling for any new pending entries
-      data.filter((e) => e.pending).forEach((e) => startPolling(e.id))
-    } catch (error) {
-      console.error("Error loading more entries:", error)
-    } finally {
-      setLoadingMore(false)
-    }
-  }
-
-  /**
-   * Start polling a pending entry until it's processed.
-   */
   const startPolling = useCallback((entryId: number) => {
-    // Don't start duplicate polls
     if (pendingPolls.current.has(entryId)) return
 
     const interval = setInterval(async () => {
       try {
         const updated = await api.getEntry(entryId)
         if (!updated.pending) {
-          // Entry is done! Update it in the list
           clearInterval(interval)
           pendingPolls.current.delete(entryId)
-
-          setEntries((prev) =>
-            prev.map((e) => (e.id === updated.id ? updated : e))
-          )
-
+          setPendingCount((c) => Math.max(0, c - 1))
           setNotification({
             type: "success",
             message: "Entry processed — emotions & insights extracted ✨",
@@ -130,60 +112,30 @@ export default function Home() {
         }
       } catch (err) {
         console.error(`Polling error for entry ${entryId}:`, err)
-        // Don't clear interval on transient errors — keep retrying
       }
     }, POLL_INTERVAL_MS)
 
     pendingPolls.current.set(entryId, interval)
   }, [])
 
-  const handleNewEntry = useCallback(async (content: string, modelName?: string) => {
-    setNotification(null)
-    try {
-      const created = await api.createEntry(content, modelName)
-
-      // Optimistically add the pending entry to the top of the list
-      setEntries((prev) => [created, ...prev])
-
-      // Start polling for this entry
-      startPolling(created.id)
-    } catch (error) {
-      console.error("Error creating entry:", error)
-      setNotification({ type: "error", message: "Something went wrong. Please try again." })
-    }
-  }, [startPolling])
-
-  const handleDelete = useCallback(async (id: number) => {
-    try {
-      // Stop polling if it's pending
-      const interval = pendingPolls.current.get(id)
-      if (interval) {
-        clearInterval(interval)
-        pendingPolls.current.delete(id)
+  const handleNewEntry = useCallback(
+    async (content: string, modelName?: string) => {
+      setNotification(null)
+      try {
+        const created = await api.createEntry(content, modelName)
+        setPendingCount((c) => c + 1)
+        startPolling(created.id)
+        setEntryNumber((prev) => (prev ? prev + 1 : 2))
+      } catch (error) {
+        console.error("Error creating entry:", error)
+        setNotification({
+          type: "error",
+          message: "Something went wrong. Please try again.",
+        })
       }
-
-      await api.deleteEntry(id)
-      setEntries((prev) => prev.filter((e) => e.id !== id))
-    } catch (error) {
-      console.error("Error deleting entry:", error)
-    }
-  }, [])
-
-  const handleEdit = useCallback(async (id: number, newContent: string) => {
-    // For now, log the edit — backend update endpoint can be added later
-    console.log("Edit entry", id, newContent)
-    // Optimistic update
-    setEntries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, user_log: newContent } : e))
-    )
-  }, [])
-
-  const handlePromptSelect = useCallback((prompt: string) => {
-    if (journalInputRef.current) {
-      journalInputRef.current.setValue(prompt + "\n")
-      journalInputRef.current.focus()
-    }
-  }, [])
+    },
+    [startPolling]
+  )
 
   return (
     <div className="relative min-h-screen bg-background">
@@ -232,59 +184,35 @@ export default function Home() {
       </div>
 
       <div className="relative z-10">
-        <main className="flex flex-col items-center pt-24 md:pt-32">
-          {/* Hero text */}
-          <div className="mb-10 flex flex-col items-center gap-2 px-6 text-center">
-            <h1 className="font-serif text-4xl leading-tight tracking-tight text-foreground/90 text-balance md:text-5xl">
-              {tagline}
+        <main className="flex flex-col items-center pt-24 md:pt-28 pb-16">
+          {/* ─── Journal Page Header ─── */}
+          <div className="flex flex-col items-center gap-3 mb-8 px-6">
+            {/* Entry Badge */}
+            <div className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-secondary/30 px-4 py-1.5 backdrop-blur-sm">
+              <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-muted-foreground/60">
+                Entry #{entryNumber !== null ? entryNumber.toLocaleString() : "—"}
+              </span>
+            </div>
+
+            {/* Date — Large elegant serif */}
+            <h1 className="font-serif text-4xl leading-tight tracking-tight text-foreground/90 text-center md:text-5xl lg:text-[3.5rem]">
+              {formattedDate}
             </h1>
+
+            {/* Metadata row */}
+            <div className="flex items-center gap-3 text-[11px] font-mono uppercase tracking-[0.2em] text-muted-foreground/40">
+              <span>{formattedTime}</span>
+            </div>
           </div>
 
-          {/* Prompt suggestions */}
-          <PromptSuggestions onSelectPrompt={handlePromptSelect} />
-
-          {/* Journal input — never blocked */}
-          <JournalInput
-            onSubmit={handleNewEntry}
-            pendingCount={pendingCount}
-            ref={journalInputRef}
-          />
-
-          {/* Loading skeletons for entry list */}
-          {initialLoading ? (
-            <div className="mx-auto w-full max-w-2xl px-6 pt-10 md:px-0">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="h-px flex-1 bg-border/30" />
-                <Skeleton className="h-3 w-28" />
-                <div className="h-px flex-1 bg-border/30" />
-              </div>
-              <div className="flex flex-col gap-3">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="rounded-xl border border-border/20 bg-card/50 p-4 space-y-2.5"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-3 w-32" />
-                      <Skeleton className="h-4 w-16 rounded-full" />
-                      <div className="flex-1" />
-                      <Skeleton className="h-3 w-12" />
-                    </div>
-                    <Skeleton className="h-3 w-[85%]" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <PreviousEntries
-              entries={entries}
-              onDelete={handleDelete}
-              onEdit={handleEdit}
-              hasMore={hasMore}
-              loadingMore={loadingMore}
-              onLoadMore={loadMore}
+          {/* ─── Journal Paper ─── */}
+          <div className="w-full max-w-3xl px-6">
+            <JournalPaper
+              ref={journalRef}
+              onSubmit={handleNewEntry}
+              pendingCount={pendingCount}
             />
-          )}
+          </div>
         </main>
       </div>
     </div>
