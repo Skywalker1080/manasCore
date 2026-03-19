@@ -17,6 +17,7 @@ import Link from "next/link"
 import { api, type JournalEntry } from "@/lib/api"
 import { EntryDetailModal } from "@/components/entry-detail-modal"
 import { Skeleton } from "@/components/ui/skeleton"
+import { MoreHorizontal, Pencil, Trash2, Check, X } from "lucide-react"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -199,20 +200,53 @@ function MiniCalendar({
 function EntryCard({
   entry,
   onClick,
+  onDelete,
+  onEdit,
 }: {
   entry: JournalEntry
   onClick: () => void
+  onDelete: (id: number) => void
+  onEdit: (id: number, content: string) => void
 }) {
+  const [openMenu, setOpenMenu] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editValue, setEditValue] = useState("")
+
   const sentiment = deriveSentimentFromScore(entry.sentiment)
   const cfg = sentimentConfig[sentiment]
   const SentimentIcon = cfg.icon
   const title = entry.title || deriveTitle(entry.user_log)
   const timestamp = new Date(entry.date)
 
+  const startEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsEditing(true)
+    setEditValue(entry.user_log)
+    setOpenMenu(false)
+  }
+
+  const confirmEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (editValue.trim() && editValue.trim() !== entry.user_log) {
+      onEdit(entry.id, editValue.trim())
+    }
+    setIsEditing(false)
+  }
+
+  const cancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsEditing(false)
+    setEditValue("")
+  }
+
   return (
     <article
-      onClick={onClick}
-      className="group relative overflow-hidden rounded-xl border border-white/5 bg-[oklch(0.13_0.005_260/0.55)] backdrop-blur-xl transition-all hover:bg-[oklch(0.15_0.005_260/0.65)] hover:border-white/10 cursor-pointer"
+      onClick={() => {
+        if (!isEditing) onClick()
+      }}
+      className={`group relative rounded-xl border border-white/5 bg-[oklch(0.13_0.005_260/0.55)] backdrop-blur-xl transition-all hover:bg-[oklch(0.15_0.005_260/0.65)] hover:border-white/10 cursor-pointer ${
+        openMenu ? "z-50" : "z-10 overflow-hidden"
+      }`}
     >
       <div className="flex items-center gap-2.5 px-4 pt-3.5 pb-2">
         <span className="flex-1 truncate font-mono text-xs font-semibold tracking-wide text-white">
@@ -233,20 +267,81 @@ function EntryCard({
         <span className="shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground/25">
           {format(timestamp, "h:mm a")}
         </span>
+
+        {/* More menu */}
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => setOpenMenu(!openMenu)}
+            className="rounded-md p-1 text-muted-foreground/25 transition-colors hover:bg-white/5 hover:text-muted-foreground/60"
+            aria-label="Entry options"
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+
+          {openMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(false)} />
+              <div className="absolute right-0 z-20 mt-1 w-32 overflow-hidden rounded-lg border border-border/40 bg-[oklch(0.14_0.005_260)] shadow-xl">
+                <button
+                  onClick={startEdit}
+                  className="flex w-full items-center gap-2 px-3 py-2 font-mono text-xs text-muted-foreground/70 transition-colors hover:bg-white/5 hover:text-foreground/80"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => { onDelete(entry.id); setOpenMenu(false) }}
+                  className="flex w-full items-center gap-2 px-3 py-2 font-mono text-xs text-rose-600/60 transition-colors hover:bg-rose-950/30 hover:text-rose-500"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Delete
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-3 px-4 pb-3.5">
-        <p className="flex-1 truncate font-mono text-[11px] leading-relaxed text-muted-foreground/45">
-          {entry.user_log}
-        </p>
-        {!entry.pending && (
-          <span
-            className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] tracking-wide ${cfg.pill}`}
-            title={`Mood: ${cfg.label}`}
-          >
-            <SentimentIcon className={`h-2.5 w-2.5 ${cfg.iconColor}`} />
-            {cfg.label}
-          </span>
+        {isEditing ? (
+          <div className="flex w-full flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+            <textarea
+              autoFocus
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              className="w-full resize-none rounded-md border border-border/30 bg-white/5 px-3 py-2 font-system-serif text-sm leading-relaxed text-foreground/80 outline-none focus:border-border/60"
+              rows={3}
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={cancelEdit}
+                className="flex items-center gap-1 rounded-md px-2 py-1 font-mono text-xs text-muted-foreground/50 transition-colors hover:bg-white/5 hover:text-foreground/60"
+              >
+                <X className="h-3 w-3" /> Cancel
+              </button>
+              <button
+                onClick={confirmEdit}
+                className="flex items-center gap-1 rounded-md bg-white/5 px-2 py-1 font-mono text-xs text-foreground/60 transition-colors hover:bg-white/10 hover:text-foreground/80"
+              >
+                <Check className="h-3 w-3" /> Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="flex-1 truncate font-mono text-[11px] leading-relaxed text-muted-foreground/45">
+              {entry.user_log}
+            </p>
+            {!entry.pending && (
+              <span
+                className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] tracking-wide ${cfg.pill}`}
+                title={`Mood: ${cfg.label}`}
+              >
+                <SentimentIcon className={`h-2.5 w-2.5 ${cfg.iconColor}`} />
+                {cfg.label}
+              </span>
+            )}
+          </>
         )}
       </div>
     </article>
@@ -298,6 +393,25 @@ export default function EntriesPage() {
       setLoadingMore(false)
     }
   }, [fetchedCount])
+
+  // Handlers for deleting and editing entries
+  const handleDeleteEntry = useCallback(async (id: number) => {
+    try {
+      await api.deleteEntry(id)
+      setAllEntries((prev) => prev.filter((e) => e.id !== id))
+    } catch (err) {
+      console.error("Error deleting entry:", err)
+    }
+  }, [])
+
+  const handleEditEntry = useCallback(async (id: number, newContent: string) => {
+    // Note: Pending full backend endpoint for PUT /entries/{id},
+    // we use an optimistic update here to reflect UI changes instantly.
+    console.log("Edit entry", id, newContent)
+    setAllEntries((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, user_log: newContent } : e))
+    )
+  }, [])
 
   // Group entries by date (yyyy-MM-dd)
   const groupedByDate = useMemo(() => {
@@ -482,6 +596,8 @@ export default function EntriesPage() {
                             key={entry.id}
                             entry={entry}
                             onClick={() => setSelectedEntry(entry)}
+                            onDelete={handleDeleteEntry}
+                            onEdit={handleEditEntry}
                           />
                         ))}
                       </div>
