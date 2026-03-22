@@ -394,6 +394,27 @@ export const api = {
     return response.json();
   },
 
+  async createRagEvalCaseFromTrace(input: {
+    trace_id: string;
+    name?: string;
+    case_type?: "temporal" | "semantic" | "mixed";
+    top_k_expected?: number;
+    required_temporal?: boolean;
+  }): Promise<{
+    status: string;
+    name: string;
+    query: string;
+    expected: { expected_entry_ids: number[]; required_temporal: boolean };
+  }> {
+    const response = await fetch(`${API_BASE_URL}/dev/rag/eval/cases/from-trace`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) throw new Error("Failed to create eval case from trace");
+    return response.json();
+  },
+
   async runRagEval(input: { include_inactive?: boolean; use_llm_judge?: boolean; model_name?: string } = {}): Promise<RagEvalRunResult> {
     const response = await fetch(`${API_BASE_URL}/dev/rag/eval/run`, {
       method: "POST",

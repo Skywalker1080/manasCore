@@ -28,3 +28,11 @@ class EvalCaseCreateInput(BaseModel):
     case_type: Literal["temporal", "semantic", "mixed"] = "semantic"
     expected: dict[str, Any] = Field(default_factory=dict)
     active: bool = True
+
+
+class EvalCaseFromTraceInput(BaseModel):
+    trace_id: str
+    name: Optional[str] = None
+    case_type: Literal["temporal", "semantic", "mixed"] = "mixed"
+    top_k_expected: int = Field(default=3, ge=1, le=20)
+    required_temporal: Optional[bool] = None

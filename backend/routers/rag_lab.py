@@ -10,7 +10,12 @@ from sqlalchemy.orm import Session
 
 from backend.agent.llm_client import get_completion_stream
 from backend.database import get_db
-from backend.schemas.rag_lab import EvalCaseCreateInput, EvalRunInput, ManualJudgeInput
+from backend.schemas.rag_lab import (
+    EvalCaseCreateInput,
+    EvalCaseFromTraceInput,
+    EvalRunInput,
+    ManualJudgeInput,
+)
 from backend.services.chat import ChatService
 from backend.services.rag_observability import (
     add_eval_case,
@@ -79,6 +84,65 @@ def create_eval_case(payload: EvalCaseCreateInput, db: Session = Depends(get_db)
         active=payload.active,
     )
     return {"status": "ok"}
+
+
+@router.post("/eval/cases/from-trace")
+def create_eval_case_from_trace(payload: EvalCaseFromTraceInput, db: Session = Depends(get_db)):
+    run = db.execute(
+        text(
+            """
+            SELECT trace_id, query, temporal_detected
+            FROM rag_runs
+            WHERE trace_id = :trace_id
+            """
+        ),
+        {"trace_id": payload.trace_id},
+    ).mappings().first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Trace not found")
+
+    rows = db.execute(
+        text(
+            """
+            SELECT entry_id
+            FROM rag_retrieval_items
+            WHERE trace_id = :trace_id
+            ORDER BY rank_index ASC
+            LIMIT :k
+            """
+        ),
+        {"trace_id": payload.trace_id, "k": payload.top_k_expected},
+    ).mappings().all()
+
+    expected_ids = [int(r["entry_id"]) for r in rows]
+    if not expected_ids:
+        raise HTTPException(status_code=400, detail="Trace has no retrieval items")
+
+    required_temporal = (
+        payload.required_temporal
+        if payload.required_temporal is not None
+        else bool(run.get("temporal_detected"))
+    )
+    expected = {
+        "expected_entry_ids": expected_ids,
+        "required_temporal": required_temporal,
+    }
+    case_name = payload.name or f"From trace {payload.trace_id[:8]}"
+
+    add_eval_case(
+        db=db,
+        name=case_name,
+        query=str(run["query"]),
+        case_type=payload.case_type,
+        expected=expected,
+        active=True,
+    )
+    return {
+        "status": "ok",
+        "name": case_name,
+        "query": run["query"],
+        "expected": expected,
+    }
 
 
 @router.get("/eval/summary")

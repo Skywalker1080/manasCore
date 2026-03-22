@@ -48,6 +48,8 @@ export default function RagLabPage() {
   const [evalResult, setEvalResult] = useState<RagEvalRunResult | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [selectedEvalModel, setSelectedEvalModel] = useState<string>("");
+  const [creatingEvalCase, setCreatingEvalCase] = useState(false);
+  const [createCaseMessage, setCreateCaseMessage] = useState<string>("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,6 +93,24 @@ export default function RagLabPage() {
       setRunningEval(false);
     }
   }, [selectedEvalModel, statusFilter]);
+  const createCaseFromTrace = useCallback(async () => {
+    if (!selectedTraceId) return;
+    setCreatingEvalCase(true);
+    setCreateCaseMessage("");
+    try {
+      const result = await api.createRagEvalCaseFromTrace({
+        trace_id: selectedTraceId,
+        top_k_expected: 3,
+      });
+      const updatedCases = await api.getRagEvalCases();
+      setCases(updatedCases);
+      setCreateCaseMessage(`Created eval case: ${result.name}`);
+    } catch {
+      setCreateCaseMessage("Failed to create eval case from trace");
+    } finally {
+      setCreatingEvalCase(false);
+    }
+  }, [selectedTraceId]);
 
   const failureClusters = useMemo(() => {
     const out = [
@@ -258,6 +278,18 @@ export default function RagLabPage() {
                             {JSON.stringify(traceDetail.judgments[0], null, 2)}
                           </pre>
                         )}
+                      <div className="rounded-lg border border-border/30 bg-background/40 p-3">
+                        <button
+                          onClick={createCaseFromTrace}
+                          disabled={creatingEvalCase || !selectedTraceId}
+                          className="rounded-md border border-border/40 bg-secondary/30 px-3 py-1.5 text-xs text-foreground/90 hover:bg-secondary disabled:opacity-50"
+                        >
+                          {creatingEvalCase ? "Creating..." : "Create Eval Case From Trace"}
+                        </button>
+                        {createCaseMessage && (
+                          <p className="mt-2 text-[11px] text-muted-foreground">{createCaseMessage}</p>
+                        )}
+                      </div>
                       </div>
                     </div>
                   )}
@@ -400,3 +432,6 @@ function MetricCard({
     </div>
   );
 }
+
+
+
