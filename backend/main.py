@@ -1,11 +1,17 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.database import engine, Base, create_vec_table, SessionLocal, migrate_db
-from backend.routers import journal, profile, analytics, chat, models
-from backend.config import settings, DATA_DIR
+
+from backend.config import DATA_DIR
+from backend.database import Base, SessionLocal, create_vec_table, engine, migrate_db
+from backend.routers import analytics, chat, journal, models, profile, rag_lab
 from backend.services.profile import ProfileService
 from backend.services.queue import process_pending_entries
+from backend.services.rag_observability import (
+    create_tables as create_rag_tables,
+    seed_default_eval_cases,
+)
 from logger.logger import get_logger
 
 logger = get_logger()
@@ -26,13 +32,23 @@ migrate_db()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle for the FastAPI app."""
-    # --- Startup: process any pending entries from previous runs ---
-    logger.info("Startup: Checking for pending journal entries…")
+    # Startup: initialize RAG observability storage
+    db = SessionLocal()
+    try:
+        create_rag_tables(db)
+        seed_default_eval_cases(db)
+    except Exception as e:
+        logger.warning(f"Startup: RAG observability setup failed: {e}")
+    finally:
+        db.close()
+
+    # Startup: process any pending entries from previous runs
+    logger.info("Startup: Checking for pending journal entries...")
     db = SessionLocal()
     try:
         result = process_pending_entries(db)
         if result["total"] > 0:
-            logger.info(f"Startup: Queue processing result — {result}")
+            logger.info(f"Startup: Queue processing result -> {result}")
         else:
             logger.info("Startup: No pending entries.")
     except Exception as e:
@@ -42,7 +58,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # --- Shutdown ---
+    # Shutdown
     logger.info("Shutdown: Application shutting down.")
 
 
@@ -63,11 +79,15 @@ app.include_router(profile.router)
 app.include_router(analytics.router)
 app.include_router(chat.router)
 app.include_router(models.router)
+app.include_router(rag_lab.router)
+
 
 @app.get("/")
 def read_root():
     return {"message": "Welcome to AI Cognitive Journal API"}
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

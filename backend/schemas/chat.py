@@ -32,9 +32,12 @@ class SourceEntry(BaseModel):
     date: Optional[str] = None
     emotion: Optional[str] = None
     mode: Optional[str] = None
+    distance: Optional[float] = None
+    retrieval_method: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
     """Full (non-streaming) chat response."""
     message: str
     sources: list[SourceEntry] = []
+    trace_id: Optional[str] = None

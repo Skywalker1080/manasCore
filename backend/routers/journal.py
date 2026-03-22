@@ -123,3 +123,17 @@ def debug_vectors(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error fetching debug vectors: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reembed")
+def reembed_entries(background_tasks: BackgroundTasks):
+    """
+    Re-embed all existing entries using the full user_log for improved RAG accuracy.
+    Runs in the background so the request returns immediately.
+    """
+    from backend.services.reembed import reembed_all_entries
+
+    logger.info("Re-embed: Triggered via API endpoint")
+    background_tasks.add_task(reembed_all_entries)
+    return {"status": "Re-embedding started in the background. Check logs for progress."}
+

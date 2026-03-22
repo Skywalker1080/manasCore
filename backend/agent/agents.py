@@ -1,6 +1,6 @@
 from backend.schemas.journal import JournalEntryCreate, ExtractorResponse
 from backend.agent.llm_client import get_completion, get_embeddings
-from backend.agent.prompts import JOURNAL_ANALYSIS_PROMPT, VISION_FLIP_PROMPT
+from backend.agent.prompts import JOURNAL_ANALYSIS_PROMPT, VISION_FLIP_PROMPT, HERO_INSIGHT_PROMPT, EMOTION_INSIGHT_PROMPT, TAG_INSIGHT_PROMPT
 from backend.utils import parse_json_markdown
 from logger.logger import get_logger
 from typing import Optional
@@ -61,3 +61,44 @@ class Agent():
         embeddings = get_embeddings(content)
         logger.info("Embedding generation successful")
         return embeddings
+
+    def generate_hero_insight(self, analytics_context: str, model_name: Optional[str] = None) -> str:
+        """
+        Takes aggregated analytics context and generates a single, powerful 
+        one-sentence insight based on the user's recent journaling patterns.
+        """
+        logger.info("Generating hero insight from analytics context...")
+        if not analytics_context:
+            logger.error("Analytics context is empty")
+            raise ValueError("Analytics context cannot be empty")
+
+        formatted_prompt = HERO_INSIGHT_PROMPT.format(analytics_context=analytics_context)
+        raw_response = get_completion(formatted_prompt, model_name=model_name)
+
+        # The response should be a single sentence — strip any stray whitespace or quotes
+        insight = raw_response.strip().strip('"').strip("'")
+        logger.info("Hero insight generation successful")
+        return insight
+
+    def generate_emotion_insight(self, emotion: str, topics: str, model_name: Optional[str] = None) -> str:
+        """Generates a short phrase explaining what topics are linked to an emotion."""
+        logger.info(f"Generating insight for emotion: {emotion}...")
+        formatted_prompt = EMOTION_INSIGHT_PROMPT.format(emotion=emotion, topics=topics)
+        raw_response = get_completion(formatted_prompt, model_name=model_name)
+        insight = raw_response.strip().strip('"').strip("'")
+        # Strip potential model leakage
+        if insight.lower().startswith("insight:"):
+            insight = insight[len("insight:"):].strip()
+        logger.info("Emotion insight generation successful")
+        return insight
+
+    def generate_tag_insight(self, emerging_tags: str, dormant_tags: str, model_name: Optional[str] = None) -> dict:
+        """Generates a short phrase identifying an emerging or dormant topic based on tag frequency."""
+        logger.info("Generating insight for tags...")
+        formatted_prompt = TAG_INSIGHT_PROMPT.format(emerging_tags=emerging_tags, dormant_tags=dormant_tags)
+        raw_response = get_completion(formatted_prompt, model_name=model_name)
+        try:
+            return parse_json_markdown(raw_response)
+        except Exception as e:
+            logger.error(f"Failed to parse tag insight response: {e}")
+            return {"emerging": "Could not analyze emerging tags.", "dormant": "Could not analyze dormant tags."}

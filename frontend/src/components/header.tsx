@@ -1,6 +1,6 @@
 "use client";
 
-import { User, BarChart3, MessageCircle, BookOpen } from "lucide-react";
+import { User, BarChart3, MessageCircle, BookOpen, FlaskConical } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import logo from "../../public/manasCore.png";
@@ -49,6 +49,13 @@ export function Header() {
           aria-label="Profile"
         >
           <User className="h-4 w-4" />
+        </Link>
+        <Link
+          href="/dev/rag-lab"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border/50 bg-secondary/40 text-foreground/60 transition-colors hover:bg-secondary hover:text-foreground"
+          aria-label="RAG Lab"
+        >
+          <FlaskConical className="h-4 w-4" />
         </Link>
       </nav>
     </header>

@@ -5,7 +5,7 @@ import {
   api,
   type SentimentPoint,
   type EmotionCount,
-  type TagCount,
+  type TagDataResponse,
   type ModeCount,
   type StreakData,
 } from "@/lib/api"
@@ -14,7 +14,7 @@ import { EmotionChart } from "@/components/emotion-chart"
 import { TagCloud } from "@/components/tag-cloud"
 import { StreakCard } from "@/components/streak-card"
 import { ModeChart } from "@/components/mode-chart"
-import { ArrowLeft, BarChart3, RefreshCw, BookOpen } from "lucide-react"
+import { ArrowLeft, BarChart3, RefreshCw, BookOpen, Sparkles } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
 
@@ -23,28 +23,30 @@ type TimeRange = "7d" | "30d"
 export default function DashboardPage() {
   const [range, setRange] = useState<TimeRange>("30d")
   const [loading, setLoading] = useState(true)
+  const [insightLoading, setInsightLoading] = useState(true)
+  const [emotionsLoading, setEmotionsLoading] = useState(true)
+  const [tagsLoading, setTagsLoading] = useState(true)
+  const [isRefreshingEmotions, setIsRefreshingEmotions] = useState(false)
+  const [isRefreshingTags, setIsRefreshingTags] = useState(false)
 
   // Data state
   const [sentiment, setSentiment] = useState<SentimentPoint[]>([])
   const [emotions, setEmotions] = useState<EmotionCount[]>([])
-  const [tags, setTags] = useState<TagCount[]>([])
+  const [tags, setTags] = useState<TagDataResponse | null>(null)
   const [modes, setModes] = useState<ModeCount[]>([])
   const [streak, setStreak] = useState<StreakData | null>(null)
+  const [heroInsight, setHeroInsight] = useState<string | null>(null)
 
   const fetchAll = useCallback(async (r: string) => {
     setLoading(true)
     try {
-      const [sentimentData, emotionData, tagData, modeData, streakData] =
+      const [sentimentData, modeData, streakData] =
         await Promise.all([
           api.getSentiment(r),
-          api.getEmotions(r),
-          api.getTags(),
           api.getModes(r),
           api.getStreak(),
         ])
       setSentiment(sentimentData)
-      setEmotions(emotionData)
-      setTags(tagData)
       setModes(modeData)
       setStreak(streakData)
     } catch (err) {
@@ -54,14 +56,73 @@ export default function DashboardPage() {
     }
   }, [])
 
+  const fetchInsight = useCallback(async (r: string) => {
+    setInsightLoading(true)
+    try {
+      const insightData = await api.getInsight(r).catch(() => ({ insight: "Start journaling to unlock your first insight." }))
+      setHeroInsight(insightData.insight)
+    } catch (err) {
+      console.error("Failed to fetch insight:", err)
+    } finally {
+      setInsightLoading(false)
+    }
+  }, [])
+
+  const fetchEmotions = useCallback(async (r: string, force = false) => {
+    if (force) {
+      setIsRefreshingEmotions(true)
+    } else {
+      setEmotionsLoading(true)
+    }
+    
+    try {
+      const emotionData = await api.getEmotions(r, force)
+      setEmotions(emotionData)
+    } catch (err) {
+      console.error("Failed to fetch emotions:", err)
+    } finally {
+      setIsRefreshingEmotions(false)
+      setEmotionsLoading(false)
+    }
+  }, [])
+
+  const fetchTags = useCallback(async (r: string, force = false) => {
+    if (force) {
+      setIsRefreshingTags(true)
+    } else {
+      setTagsLoading(true)
+    }
+    
+    try {
+      const tagData = await api.getTags(r, force)
+      setTags(tagData)
+    } catch (err) {
+      console.error("Failed to fetch tags:", err)
+    } finally {
+      setIsRefreshingTags(false)
+      setTagsLoading(false)
+    }
+  }, [])
+
+  const refreshEmotions = useCallback(() => {
+    fetchEmotions(range, true)
+  }, [range, fetchEmotions])
+
+  const refreshTags = useCallback(() => {
+    fetchTags(range, true)
+  }, [range, fetchTags])
+
   useEffect(() => {
     fetchAll(range)
-  }, [range, fetchAll])
+    fetchInsight(range)
+    fetchEmotions(range)
+    fetchTags(range)
+  }, [range, fetchAll, fetchInsight, fetchEmotions, fetchTags])
 
   const hasData =
     sentiment.length > 0 ||
     emotions.length > 0 ||
-    tags.length > 0 ||
+    (tags && tags.top_tags.length > 0) ||
     modes.length > 0 ||
     (streak && streak.total_entries > 0)
 
@@ -116,8 +177,8 @@ export default function DashboardPage() {
 
             {/* Refresh */}
             <button
-              onClick={() => fetchAll(range)}
-              disabled={loading}
+              onClick={() => { fetchAll(range); fetchInsight(range); }}
+              disabled={loading || insightLoading}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/30 bg-secondary/30 text-muted-foreground/60 transition-all hover:bg-secondary hover:text-foreground disabled:opacity-40"
               aria-label="Refresh data"
             >
@@ -129,6 +190,12 @@ export default function DashboardPage() {
         {/* Loading skeletons */}
         {loading ? (
           <div className="grid gap-5 md:grid-cols-2">
+            {/* Hero Insight Skeleton */}
+            <div className="md:col-span-2 rounded-xl border border-primary/20 bg-primary/5 p-6 flex flex-col gap-3">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-8 w-full max-w-2xl" />
+            </div>
+            
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
@@ -170,13 +237,53 @@ export default function DashboardPage() {
         ) : (
           /* Grid layout */
           <div className="grid gap-5 md:grid-cols-2">
+            {/* Hero Insight Card */}
+            {insightLoading ? (
+              <div className="md:col-span-2 rounded-xl border border-primary/20 bg-primary/5 p-6 flex flex-col gap-3">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-8 w-full max-w-2xl" />
+              </div>
+            ) : heroInsight && (
+              <div className="md:col-span-2 rounded-xl border border-primary/20 bg-primary/5 p-6 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 -mr-4 -mt-4 w-24 h-24 rounded-full bg-primary/10 blur-xl transition-transform duration-700 group-hover:scale-150" />
+                <div className="relative z-10 flex items-start gap-4">
+                  <div className="flex-shrink-0 mt-1">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-primary/80 mb-1 flex items-center gap-2">
+                      manasCore Insight
+                      <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] uppercase font-bold text-primary tracking-wider">
+                        The &quot;So What?&quot;
+                      </span>
+                    </h3>
+                    <p className="text-lg md:text-xl font-serif text-foreground/90 leading-relaxed">
+                      &quot;{heroInsight}&quot;
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Row 1 */}
             <SentimentChart data={sentiment} isLoading={loading} />
-            <EmotionChart data={emotions} isLoading={loading} />
+            <EmotionChart 
+              data={emotions} 
+              isLoading={emotionsLoading} 
+              isRefreshing={isRefreshingEmotions}
+              onRefresh={refreshEmotions} 
+            />
 
             {/* Row 2 */}
             <ModeChart data={modes} isLoading={loading} />
-            <TagCloud data={tags} isLoading={loading} />
+            <TagCloud 
+              data={tags} 
+              isLoading={tagsLoading} 
+              isRefreshing={isRefreshingTags}
+              onRefresh={refreshTags}
+            />
 
             {/* Row 3 — full width */}
             <div className="md:col-span-2">

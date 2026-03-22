@@ -62,10 +62,10 @@ def process_single_entry(entry_id: int, model_name: str | None = None) -> bool:
         db.refresh(entry)
         logger.info(f"Queue: Metadata saved for entry ID {entry.id}")
 
-        # --- 2. Embedding (only if we got a summary) ---
-        if extraction.summary:
+        # --- 2. Embedding — use full user_log for richer vectors ---
+        if entry.user_log:
             try:
-                vector = agent.embedder(extraction.summary)
+                vector = agent.embedder(entry.user_log)
                 serialized_vector = serialize_embedding(vector)
                 db.execute(
                     text("INSERT OR REPLACE INTO vec_entries(entry_id, embedding) VALUES (:id, :vec)"),
