@@ -21,6 +21,7 @@ from backend.services.rag_observability import (
     list_traces,
     llm_judge_answer,
     record_manual_judgment,
+    record_llm_judgment,
     save_retrieval,
     start_trace,
     finalize_trace,
@@ -110,7 +111,12 @@ def run_eval(payload: EvalRunInput, db: Session = Depends(get_db)):
 
     for row in rows:
         expected = json.loads(row["expected_json"]) if row.get("expected_json") else {}
-        trace_id = start_trace(db, row["query"], history_len=0, requested_model=None)
+        trace_id = start_trace(
+            db,
+            row["query"],
+            history_len=0,
+            requested_model=payload.model_name,
+        )
         messages, source_entries, retrieval_debug = ChatService.build_messages(
             user_message=row["query"],
             chat_history=[],
@@ -123,7 +129,7 @@ def run_eval(payload: EvalRunInput, db: Session = Depends(get_db)):
         import time
 
         stream_started = time.perf_counter()
-        for chunk in get_completion_stream(messages):
+        for chunk in get_completion_stream(messages, model_name=payload.model_name):
             if first_token_ms is None and chunk:
                 first_token_ms = (time.perf_counter() - stream_started) * 1000.0
             answer += chunk
@@ -144,7 +150,12 @@ def run_eval(payload: EvalRunInput, db: Session = Depends(get_db)):
         )
 
         judge = (
-            llm_judge_answer(query=row["query"], answer=answer, sources=source_entries)
+            llm_judge_answer(
+                query=row["query"],
+                answer=answer,
+                sources=source_entries,
+                model_name=payload.model_name,
+            )
             if payload.use_llm_judge
             else {
                 "groundedness": None,
@@ -157,6 +168,8 @@ def run_eval(payload: EvalRunInput, db: Session = Depends(get_db)):
                 "rationale": "llm_judge_disabled",
             }
         )
+        if payload.use_llm_judge:
+            record_llm_judgment(db, trace_id, judge)
 
         db.execute(
             text(
@@ -201,6 +214,7 @@ def run_eval(payload: EvalRunInput, db: Session = Depends(get_db)):
                 "name": row["name"],
                 "case_type": row["case_type"],
                 "trace_id": trace_id,
+                "notes": judge.get("rationale"),
                 "metrics": {
                     "precision_at_k": retrieval_metrics.precision_at_k,
                     "recall_at_k": retrieval_metrics.recall_at_k,

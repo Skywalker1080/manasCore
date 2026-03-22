@@ -394,7 +394,7 @@ export const api = {
     return response.json();
   },
 
-  async runRagEval(input: { include_inactive?: boolean; use_llm_judge?: boolean } = {}): Promise<RagEvalRunResult> {
+  async runRagEval(input: { include_inactive?: boolean; use_llm_judge?: boolean; model_name?: string } = {}): Promise<RagEvalRunResult> {
     const response = await fetch(`${API_BASE_URL}/dev/rag/eval/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -504,6 +504,7 @@ export interface RagEvalRunResult {
     name: string;
     case_type: string;
     trace_id: string;
+    notes?: string | null;
     metrics: Record<string, number | boolean | null>;
   }>;
   summary: Record<string, number | null>;

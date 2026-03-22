@@ -19,6 +19,7 @@ class ManualJudgeInput(BaseModel):
 class EvalRunInput(BaseModel):
     include_inactive: bool = False
     use_llm_judge: bool = True
+    model_name: Optional[str] = None
 
 
 class EvalCaseCreateInput(BaseModel):

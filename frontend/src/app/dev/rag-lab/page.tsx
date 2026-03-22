@@ -22,6 +22,7 @@ import {
   type RagTraceDetail,
   type RagTraceSummary,
 } from "@/lib/api";
+import { ModelSelector } from "@/components/model-selector";
 
 type TabKey = "overview" | "traces" | "bench" | "failures";
 
@@ -46,6 +47,7 @@ export default function RagLabPage() {
   const [runningEval, setRunningEval] = useState(false);
   const [evalResult, setEvalResult] = useState<RagEvalRunResult | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [selectedEvalModel, setSelectedEvalModel] = useState<string>("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,7 +78,10 @@ export default function RagLabPage() {
   const runEval = useCallback(async () => {
     setRunningEval(true);
     try {
-      const result = await api.runRagEval({ use_llm_judge: true });
+      const result = await api.runRagEval({
+        use_llm_judge: true,
+        model_name: selectedEvalModel || undefined,
+      });
       setEvalResult(result);
       const summaryData = await api.getRagEvalSummary(14);
       setSummary(summaryData);
@@ -85,7 +90,7 @@ export default function RagLabPage() {
     } finally {
       setRunningEval(false);
     }
-  }, [statusFilter]);
+  }, [selectedEvalModel, statusFilter]);
 
   const failureClusters = useMemo(() => {
     const out = [
@@ -263,22 +268,33 @@ export default function RagLabPage() {
             {tab === "bench" && (
               <div className="space-y-4">
                 <div className="rounded-xl border border-border/30 bg-card/40 p-4">
-                  <div className="mb-3 flex items-center justify-between">
+                  <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
                       <h2 className="text-sm font-semibold text-foreground/90">Eval Bench</h2>
                       <p className="text-xs text-muted-foreground/70">
                         Active cases: {cases.filter((c) => c.active === 1).length} / {cases.length}
                       </p>
                     </div>
-                    <button
-                      onClick={runEval}
-                      disabled={runningEval}
-                      className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/20 px-3 py-2 text-xs text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-50"
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                      {runningEval ? "Running..." : "Run Eval Suite"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <ModelSelector
+                        value={selectedEvalModel}
+                        onChange={setSelectedEvalModel}
+                        disabled={runningEval}
+                        compact
+                      />
+                      <button
+                        onClick={runEval}
+                        disabled={runningEval}
+                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/20 px-3 py-2 text-xs text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-50"
+                      >
+                        <Play className="h-3.5 w-3.5" />
+                        {runningEval ? "Running..." : "Run Eval Suite"}
+                      </button>
+                    </div>
                   </div>
+                  <p className="mb-3 text-[11px] text-muted-foreground/60">
+                    Eval model: {selectedEvalModel || "Gemini 3 Flash (Default)"}
+                  </p>
 
                   <div className="max-h-[260px] overflow-auto rounded-lg border border-border/20">
                     <table className="w-full text-left text-xs">
@@ -311,6 +327,32 @@ export default function RagLabPage() {
                     <pre className="max-h-[260px] overflow-auto whitespace-pre-wrap rounded-lg border border-border/20 bg-background/40 p-3 text-[11px] text-foreground/80">
                       {JSON.stringify(evalResult.summary, null, 2)}
                     </pre>
+                    <div className="mt-4 max-h-[320px] overflow-auto rounded-lg border border-border/20">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-secondary/30 text-muted-foreground/70">
+                          <tr>
+                            <th className="p-2">Case</th>
+                            <th className="p-2">Recall@K</th>
+                            <th className="p-2">MRR</th>
+                            <th className="p-2">Grounded</th>
+                            <th className="p-2">Pass</th>
+                            <th className="p-2">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {evalResult.results.map((result) => (
+                            <tr key={result.trace_id} className="border-t border-border/20 align-top">
+                              <td className="p-2 text-foreground/90">{result.name}</td>
+                              <td className="p-2 text-muted-foreground">{fmtNumber(result.metrics.recall_at_k)}</td>
+                              <td className="p-2 text-muted-foreground">{fmtNumber(result.metrics.mrr)}</td>
+                              <td className="p-2 text-muted-foreground">{fmtNumber(result.metrics.groundedness)}</td>
+                              <td className="p-2 text-muted-foreground">{String(result.metrics.pass ?? "-")}</td>
+                              <td className="max-w-[320px] p-2 text-muted-foreground">{result.notes || "-"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -358,4 +400,3 @@ function MetricCard({
     </div>
   );
 }
-

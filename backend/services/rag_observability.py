@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.agent.llm_client import get_completion, get_last_stream_meta
+from backend.utils import parse_json_markdown
 from logger.logger import get_logger
 
 logger = get_logger()
@@ -31,6 +32,48 @@ class RetrievalMetrics:
     ndcg_at_k: float | None
     temporal_intent_accuracy: float | None
     date_filter_coverage: float | None
+
+
+def _insert_judgment(
+    db: Session,
+    trace_id: str,
+    judge_type: str,
+    groundedness: float | None,
+    faithfulness: float | None,
+    helpfulness: float | None,
+    citation_adequacy: float | None,
+    safety_tone: float | None,
+    trust_answer: bool | None,
+    rationale: str | None,
+    pass_value: bool | int | None,
+) -> None:
+    db.execute(
+        text(
+            """
+            INSERT INTO rag_judgments(
+                trace_id, created_at, judge_type, groundedness, faithfulness,
+                helpfulness, citation_adequacy, safety_tone, trust_answer, rationale, pass
+            )
+            VALUES(
+                :trace_id, :created_at, :judge_type, :groundedness, :faithfulness,
+                :helpfulness, :citation_adequacy, :safety_tone, :trust_answer, :rationale, :pass
+            )
+            """
+        ),
+        {
+            "trace_id": trace_id,
+            "created_at": _utc_now_iso(),
+            "judge_type": judge_type,
+            "groundedness": groundedness,
+            "faithfulness": faithfulness,
+            "helpfulness": helpfulness,
+            "citation_adequacy": citation_adequacy,
+            "safety_tone": safety_tone,
+            "trust_answer": 1 if trust_answer else 0 if trust_answer is not None else None,
+            "rationale": rationale,
+            "pass": 1 if pass_value else 0 if pass_value is not None else None,
+        },
+    )
 
 
 def _utc_now_iso() -> str:
@@ -371,31 +414,18 @@ def record_manual_judgment(
     ]
     avg_score = (sum(score_values) / len(score_values)) if score_values else 0.0
     pass_flag = 1 if avg_score >= 3.5 and (trust_answer is not False) else 0
-    db.execute(
-        text(
-            """
-            INSERT INTO rag_judgments(
-                trace_id, created_at, judge_type, groundedness, faithfulness,
-                helpfulness, citation_adequacy, safety_tone, trust_answer, rationale, pass
-            )
-            VALUES(
-                :trace_id, :created_at, 'manual', :groundedness, :faithfulness,
-                :helpfulness, :citation_adequacy, :safety_tone, :trust_answer, :rationale, :pass
-            )
-            """
-        ),
-        {
-            "trace_id": trace_id,
-            "created_at": _utc_now_iso(),
-            "groundedness": groundedness,
-            "faithfulness": faithfulness,
-            "helpfulness": helpfulness,
-            "citation_adequacy": citation_adequacy,
-            "safety_tone": safety_tone,
-            "trust_answer": 1 if trust_answer else 0 if trust_answer is not None else None,
-            "rationale": rationale,
-            "pass": pass_flag,
-        },
+    _insert_judgment(
+        db=db,
+        trace_id=trace_id,
+        judge_type="manual",
+        groundedness=groundedness,
+        faithfulness=faithfulness,
+        helpfulness=helpfulness,
+        citation_adequacy=citation_adequacy,
+        safety_tone=safety_tone,
+        trust_answer=trust_answer,
+        rationale=rationale,
+        pass_value=pass_flag,
     )
     db.commit()
 
@@ -404,6 +434,7 @@ def llm_judge_answer(
     query: str,
     answer: str,
     sources: list[dict[str, Any]],
+    model_name: str | None = None,
 ) -> dict[str, Any]:
     """Advisory LLM-as-judge scoring for response quality."""
     try:
@@ -429,20 +460,29 @@ JSON format:
   "rationale": ""
 }}
 """
-        raw = get_completion(prompt)
-        parsed = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
-        return parsed
+        raw = get_completion(prompt, model_name=model_name)
+        parsed = parse_json_markdown(raw)
+        return {
+            "groundedness": parsed.get("groundedness"),
+            "faithfulness": parsed.get("faithfulness"),
+            "helpfulness": parsed.get("helpfulness"),
+            "citation_adequacy": parsed.get("citation_adequacy"),
+            "safety_tone": parsed.get("safety_tone"),
+            "trust_answer": parsed.get("trust_answer"),
+            "pass": parsed.get("pass"),
+            "rationale": parsed.get("rationale"),
+        }
     except Exception as exc:
         logger.warning(f"LLM judge failed: {exc}")
         return {
-            "groundedness": None,
-            "faithfulness": None,
-            "helpfulness": None,
-            "citation_adequacy": None,
-            "safety_tone": None,
+            "groundedness": 0.0,
+            "faithfulness": 0.0,
+            "helpfulness": 0.0,
+            "citation_adequacy": 0.0,
+            "safety_tone": 0.0,
             "trust_answer": None,
             "pass": False,
-            "rationale": "judge_failed",
+            "rationale": f"judge_failed: {str(exc)[:160]}",
         }
 
 
@@ -463,11 +503,11 @@ def compute_retrieval_metrics(
     required_temporal = expected.get("required_temporal")
     k = len(retrieved_entries)
 
-    precision_at_k = None
-    recall_at_k = None
-    mrr = None
-    ndcg_at_k = None
-    date_filter_coverage = None
+    precision_at_k = 0.0
+    recall_at_k = 0.0
+    mrr = 0.0
+    ndcg_at_k = 0.0
+    date_filter_coverage = 0.0 if expected.get("date_range_start") and expected.get("date_range_end") else None
 
     if k > 0 and expected_ids:
         binary_rel = [1 if e.get("entry_id") in expected_ids else 0 for e in retrieved_entries]
@@ -505,6 +545,23 @@ def compute_retrieval_metrics(
         temporal_intent_accuracy=temporal_intent_accuracy,
         date_filter_coverage=date_filter_coverage,
     )
+
+
+def record_llm_judgment(db: Session, trace_id: str, judgment: dict[str, Any]) -> None:
+    _insert_judgment(
+        db=db,
+        trace_id=trace_id,
+        judge_type="llm",
+        groundedness=judgment.get("groundedness"),
+        faithfulness=judgment.get("faithfulness"),
+        helpfulness=judgment.get("helpfulness"),
+        citation_adequacy=judgment.get("citation_adequacy"),
+        safety_tone=judgment.get("safety_tone"),
+        trust_answer=judgment.get("trust_answer"),
+        rationale=judgment.get("rationale"),
+        pass_value=judgment.get("pass"),
+    )
+    db.commit()
 
 
 def list_traces(db: Session, limit: int = 50, status: str | None = None) -> list[dict[str, Any]]:
