@@ -248,18 +248,15 @@ export default function DashboardPage() {
                 <div className="absolute top-0 right-0 -mr-4 -mt-4 w-24 h-24 rounded-full bg-primary/10 blur-xl transition-transform duration-700 group-hover:scale-150" />
                 <div className="relative z-10 flex items-start gap-4">
                   <div className="flex-shrink-0 mt-1">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary">
-                      <Sparkles className="h-4 w-4" />
-                    </div>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-primary/80 mb-1 flex items-center gap-2">
-                      manasCore Insight
+                      Journal Insights
                       <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] uppercase font-bold text-primary tracking-wider">
-                        The &quot;So What?&quot;
+                        Updated every 5 entries
                       </span>
                     </h3>
-                    <p className="text-lg md:text-xl font-serif text-foreground/90 leading-relaxed">
+                    <p className="text-lg md:text-l font-system-serif text-foreground/90 leading-relaxed">
                       &quot;{heroInsight}&quot;
                     </p>
                   </div>

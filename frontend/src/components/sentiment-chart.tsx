@@ -80,7 +80,7 @@ export function SentimentChart({ data, isLoading }: SentimentChartProps) {
   return (
     <Card className="border-border/30 bg-card/60 backdrop-blur-sm transition-all duration-300 hover:border-border/50">
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium text-foreground/80">
+        <CardTitle className="flex items-center gap-2 text-sm font-weight-600 text-foreground/80">
           <TrendingUp className="h-4 w-4 text-chart-1" />
           Emotional Pulse
         </CardTitle>

@@ -78,14 +78,14 @@ export const JournalPaper = forwardRef<JournalPaperHandle, JournalPaperProps>(
     return (
       <div className="journal-paper relative rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm flex flex-col">
         {/* ── Paper content area ── */}
-        <div className="relative px-8 py-6 md:px-10 md:py-8 flex-1 min-h-0">
+        <div className="relative px-8 py-6 md:px-10 md:py-8 flex-1 min-h-0 font-system-serif text-lg md:text-xl">
           {/* Horizontal ruled lines */}
           <div className="pointer-events-none absolute inset-0 px-8 md:px-10 overflow-hidden" aria-hidden="true">
             <div className="relative h-full pt-6 md:pt-8 w-full">
               {Array.from({ length: MAX_RENDERED_LINES }).map((_, i) => (
                 <div
                   key={i}
-                  className="journal-rule w-full"
+                  className="journal-rule w-full box-border"
                   style={{ height: "2em" }}
                 />
               ))}
@@ -100,8 +100,8 @@ export const JournalPaper = forwardRef<JournalPaperHandle, JournalPaperProps>(
             onKeyDown={handleKeyDown}
             onInput={handleInput}
             disabled={submitting}
-            placeholder="Begin writing…"
-            className="relative z-10 w-full resize-none bg-transparent text-base leading-[2em] text-foreground/90 placeholder:text-muted-foreground/30 focus:outline-none md:text-lg font-system-serif"
+            placeholder="Wake up, Neo..."
+            className="relative z-10 w-full resize-none bg-transparent p-0 m-0 border-none leading-[2em] text-foreground/90 placeholder:text-muted-foreground/30 focus:outline-none focus:ring-0"
             style={{ height: `${MIN_LINE_COUNT * 2}em`, minHeight: `${MIN_LINE_COUNT * 2}em` }}
             id="journal-textarea"
           />

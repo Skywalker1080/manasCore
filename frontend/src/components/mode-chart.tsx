@@ -39,7 +39,7 @@ export function ModeChart({ data, isLoading }: ModeChartProps) {
     return (
       <Card className="border-border/30 bg-card/60 backdrop-blur-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm font-medium text-foreground/80">
+          <CardTitle className="flex items-center gap-2 text-sm font-weight-600 text-foreground/80">
             <Target className="h-4 w-4 text-chart-3" />
             Life Balance
           </CardTitle>

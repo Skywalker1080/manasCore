@@ -16,7 +16,7 @@ export function EmotionChart({ data, isLoading, isRefreshing, onRefresh }: Emoti
     return (
       <Card className="border-border/30 bg-card/60 backdrop-blur-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm font-medium text-foreground/80">
+          <CardTitle className="flex items-center gap-2 text-sm font-system-serif text-foreground/80">
             <Activity className="h-4 w-4 text-chart-2" />
             Pattern Detector
           </CardTitle>
@@ -38,7 +38,7 @@ export function EmotionChart({ data, isLoading, isRefreshing, onRefresh }: Emoti
       <div className="absolute top-0 right-0 -mr-6 -mt-6 w-32 h-32 rounded-full bg-chart-2/5 blur-2xl pointer-events-none" />
 
       <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0 relative z-10">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium text-foreground/80">
+        <CardTitle className="flex items-center gap-2 text-sm serif text-foreground/80">
           <Activity className="h-4 w-4 text-chart-2" />
           Pattern Detector
         </CardTitle>

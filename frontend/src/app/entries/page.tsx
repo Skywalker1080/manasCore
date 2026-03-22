@@ -485,7 +485,7 @@ export default function EntriesPage() {
               Journal Entries
             </h1>
             <p className="mt-1 text-xs tracking-wide text-muted-foreground/50">
-              Browse your past reflections
+              Browse your Journal entries
             </p>
           </div>
         </div>

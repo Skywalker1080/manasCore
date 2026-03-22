@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { JournalInput } from "@/components/journal-input";
 import { api, type JournalEntry } from "@/lib/api";
-import { Loader2, Sun, Cloud, CloudRain, Lightbulb, BookOpen } from "lucide-react";
+import { Loader2, Sun, Cloud, CloudRain, Lightbulb, BookOpen, Key } from "lucide-react";
 import { format } from "date-fns";
 import { StreakCard } from "@/components/streak-card";
 import { EmotionChart } from "@/components/emotion-chart";
+import { SentimentChart } from "@/components/sentiment-chart";
 import { useRouter } from "next/navigation";
 
 const API_BASE_URL = "http://localhost:8000";
@@ -112,7 +113,11 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     { id: 1, text: "" }
   ]);
 
-  // step-7 final step
+  // step-7 api key input
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+
+  // final actions
   const [showFinalActions, setShowFinalActions] = useState(false);
 
   const [showNext, setShowNext] = useState(false);
@@ -346,12 +351,11 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       setTimeout(() => {
         enqueue(
           [
-            "manasCore is a local first AI Journal, it is completely safe and local, full privacy of your data.",
-            "Moreover you can use Gemini models via api key or any local models via ollama.",
-            "The journal is also powered by local RAG system so you can chat with it and ask about any journal entry.",
-            "Cool, Want to write your first real entry now?"
+            "manasCore is a local first AI Journal, complete privacy for your data.",
+            "Though this app is local-first, you can still use powerful models via Gemini. You can get an API key from Google AI Studio (https://aistudio.google.com/app/apikey).",
+            "The API key is stored securely on disk and never exposed to the browser. Paste yours below."
           ],
-          () => setShowFinalActions(true)
+          () => setShowApiKeyInput(true)
         );
       }, 300);
     }
@@ -689,6 +693,48 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
   };
 
+  const handleApiKeySubmit = async () => {
+    if (!apiKey.trim()) return;
+    
+    setShowApiKeyInput(false);
+    setIsSaving(true);
+    addOrUpdateMessage({ id: `user-apikey-${Date.now()}`, role: "user", text: "Key saved hidden." });
+
+    try {
+      await api.updateConfig({ gemini_api_key: apiKey.trim() });
+      setIsSaving(false);
+      
+      setTimeout(() => {
+        enqueue(
+          [
+             "The journal is also powered by a local RAG system so you can chat with it and ask about any journal entry.",
+             "Cool, Want to write your first real entry now?"
+          ],
+          () => setShowFinalActions(true)
+        );
+      }, 400);
+    } catch (err: any) {
+      setIsSaving(false);
+      setError(err.message || "Failed to save API key.");
+      setShowApiKeyInput(true);
+    }
+  };
+
+  const handleSkipApiKey = () => {
+    setShowApiKeyInput(false);
+    addOrUpdateMessage({ id: `user-skip-apikey-${Date.now()}`, role: "user", text: "I'll do this later." });
+    
+    setTimeout(() => {
+      enqueue(
+        [
+           "No worries. The journal is also powered by a local RAG system so you can chat with it and ask about any journal entry.",
+           "Cool, Want to write your first real entry now?"
+        ],
+        () => setShowFinalActions(true)
+      );
+    }, 400);
+  };
+
   // ── Render ─────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
@@ -998,6 +1044,46 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           </div>
         )}
 
+        {/* API Key Input (Step 8) */}
+        {showApiKeyInput && (
+          <div className="group relative animate-in fade-in slide-in-from-bottom-2 duration-500 mb-6 max-w-xl pl-4">
+            <div className="rounded-xl border border-white/10 bg-[oklch(0.13_0.005_260/0.55)] p-5 backdrop-blur-md shadow-xl">
+              <label htmlFor="onboarding-gemini-key" className="flex items-center gap-2 text-sm font-medium mb-3 text-foreground/90">
+                <Key className="h-4 w-4 text-chart-2" />
+                Gemini API Key
+              </label>
+              <input
+                id="onboarding-gemini-key"
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter your Gemini API key"
+                className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:border-chart-2/50 transition-colors mb-2 font-mono"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter") handleApiKeySubmit(); }}
+              />
+              <p className="text-xs text-muted-foreground/80 mb-6">
+                You can get one from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-chart-2 hover:underline">Google AI Studio</a>.
+              </p>
+              <div className="flex items-center justify-end gap-4">
+                <button
+                  onClick={handleSkipApiKey}
+                  className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Skip for now
+                </button>
+                <button
+                  onClick={handleApiKeySubmit}
+                  disabled={!apiKey.trim()}
+                  className="rounded-full bg-chart-2/20 border border-chart-2/30 px-6 py-2 text-sm font-medium text-chart-2 hover:bg-chart-2/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Save API Key
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Final Actions (Step 8) */}
         {showFinalActions && (
           <div className="mt-6 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-12">
@@ -1135,51 +1221,60 @@ function EntryPreviewCard({ entry }: { entry: JournalEntry }) {
 // ─── Mock Dashboard widget (Step 4) ──────────────────────────────────────
 function MockDashboardWidget() {
   const MOCK_STREAK = { current_streak: 12, longest_streak: 12, total_entries: 24 };
-  const MOCK_EMOTIONS = [
-    { emotion: "reflective", count: 10 },
-    { emotion: "hopeful", count: 6 },
-    { emotion: "anxious", count: 4 },
-    { emotion: "focused", count: 4 },
+  const MOCK_SENTIMENT = [
+    { date: "2026-03-18T00:00:00.000Z", average_sentiment: -0.1, context: "Started a bit rough" },
+    { date: "2026-03-19T00:00:00.000Z", average_sentiment: 0.3, context: "Gaining momentum" },
+    { date: "2026-03-20T00:00:00.000Z", average_sentiment: 0.8, context: "Great productive day" },
+    { date: "2026-03-21T00:00:00.000Z", average_sentiment: 0.6, context: "Steady progress" },
+    { date: "2026-03-22T00:00:00.000Z", average_sentiment: 0.7, context: "Feeling good" },
+  ];
+  const MOCK_EMOTIONS: any = [
+    { emotion: "reflective", count: 10, trend: "up", trend_percent: 15, insight: "You reflect most on Sundays before the week begins." },
+    { emotion: "hopeful", count: 6, trend: "up", trend_percent: 5, insight: "Finding more optimism as you stick to your habits." },
+    { emotion: "anxious", count: 4, trend: "down", trend_percent: 10, insight: "Anxious thoughts are dropping as you plan ahead." },
   ];
 
   return (
     <div className="ml-4 mt-6 mb-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 max-w-xl">
-        {/* Streak */}
-        <div className="sm:col-span-2">
-           <StreakCard data={MOCK_STREAK} />
+      <div className="flex flex-col gap-4 max-w-xl">
+        {/* Row 1: Emotional Pulse Graph */}
+        <div className="w-full">
+           <SentimentChart data={MOCK_SENTIMENT} />
         </div>
 
-        {/* Emotion Chart */}
-        <div className="flex">
-           <div className="w-full">
-             <EmotionChart data={MOCK_EMOTIONS} />
-           </div>
+        {/* Row 2: Pattern Detector */}
+        <div className="w-full">
+           <EmotionChart data={MOCK_EMOTIONS} />
         </div>
 
-        {/* AI Insight & Recent Summary */}
-        <div className="flex flex-col gap-3">
-          {/* AI Generated Insight */}
-          <article className="flex-1 rounded-xl border border-white/5 bg-[oklch(0.13_0.005_260/0.55)] backdrop-blur-xl p-4 flex flex-col justify-center transition-all hover:border-white/10">
-            <div className="flex items-center gap-2 mb-2">
-              <Lightbulb className="h-4 w-4 text-chart-2/80" />
-              <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">Insight</span>
-            </div>
-            <p className="font-system-serif text-[15px] leading-snug text-foreground/80">
-              "You journal most on Sundays when you're planning your week. It seems to clear your mind for Monday."
-            </p>
-          </article>
+        {/* Row 3: Streak and items side by side, since they are small elements */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+          <div>
+            <StreakCard data={MOCK_STREAK} />
+          </div>
+          <div className="flex flex-col gap-3">
+            {/* AI Generated Insight */}
+            <article className="flex-1 rounded-xl border border-white/5 bg-[oklch(0.13_0.005_260/0.55)] backdrop-blur-xl p-4 flex flex-col justify-center transition-all hover:border-white/10">
+              <div className="flex items-center gap-2 mb-2">
+                <Lightbulb className="h-4 w-4 text-chart-2/80" />
+                <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">Insight</span>
+              </div>
+              <p className="font-system-serif text-[15px] leading-snug text-foreground/80">
+                &quot;You journal most on Sundays when you&apos;re planning your week. It seems to clear your mind for Monday.&quot;
+              </p>
+            </article>
 
-          {/* Recent Entry Summary */}
-          <article className="flex-1 rounded-xl border border-white/5 bg-[oklch(0.13_0.005_260/0.55)] backdrop-blur-xl p-4 flex flex-col justify-center transition-all hover:border-white/10">
-             <div className="flex items-center gap-2 mb-2">
-              <BookOpen className="h-4 w-4 text-chart-1/80" />
-              <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">Recent</span>
-            </div>
-            <p className="font-mono text-xs leading-relaxed text-muted-foreground/60">
-              Felt a bit overwhelmed today, but breaking down my tasks helped me find my center.
-            </p>
-          </article>
+            {/* Recent Entry Summary */}
+            <article className="flex-1 rounded-xl border border-white/5 bg-[oklch(0.13_0.005_260/0.55)] backdrop-blur-xl p-4 flex flex-col justify-center transition-all hover:border-white/10">
+               <div className="flex items-center gap-2 mb-2">
+                <BookOpen className="h-4 w-4 text-chart-1/80" />
+                <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground/60">Recent</span>
+              </div>
+              <p className="font-mono text-xs leading-relaxed text-muted-foreground/60">
+                Felt a bit overwhelmed today, but breaking down my tasks helped me find my center.
+              </p>
+            </article>
+          </div>
         </div>
       </div>
     </div>
