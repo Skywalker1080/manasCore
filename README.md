@@ -1,25 +1,35 @@
-# manasCore - Your Inner Journal
+<p align="center">
+  <img src="https://placehold.co/1200x320/0f172a/e2e8f0?text=manasCore+Banner" alt="manasCore Banner Placeholder" />
+</p>
 
-![manasCore Banner Placeholder](https://placehold.co/1200x320/0f172a/e2e8f0?text=manasCore+Banner)
+<h1 align="center">manasCore - Your Inner Journal</h1>
 
-![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
-![Release](https://img.shields.io/badge/release-v0.1.0-informational?style=for-the-badge)
-![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![LiteLLM](https://img.shields.io/badge/LiteLLM-111111?style=for-the-badge)
-![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/release-v0.1.0-informational?style=for-the-badge" alt="Release" />
+  <img src="https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/LiteLLM-111111?style=for-the-badge" alt="LiteLLM" />
+  <img src="https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
+</p>
 
 ## About The Project
 
 manasCore is a local-first AI journaling app designed to help users reflect clearly, build consistent self-awareness, and track growth over time with private journaling workflows that can run on-device while still supporting cloud AI when needed.
 
-## Key Features
+- Chat with your journal using local RAG for context-aware, memory-backed reflections.
+- Local-first architecture that keeps the core journaling experience reliable on your machine.
+- Intelligent fallback mechanism that maintains continuity across local and cloud model routes.
+- Optimized runtime for low-parameter local models to keep performance practical on everyday hardware.
+- Complete privacy-first storage with journal data persisted locally by default.
+- Full ownership of your journal data, with no forced external dependency for your core experience.
 
-- Local-first design
-- Fall-back mechanism
-- Optimized for low-parameter local models
-- Complete data privacy with local storage
-- You own your journal
+## Product Showcase
+
+| Home Page | Chat with Journal | Dashboard |
+| --- | --- | --- |
+| ![Home Page Placeholder](https://placehold.co/640x360/f8fafc/0f172a?text=Home+Page+Screenshot) | ![Chat with Journal Placeholder](https://placehold.co/640x360/ecfeff/0f172a?text=Chat+with+Journal+Screenshot) | ![Dashboard Placeholder](https://placehold.co/640x360/f0fdf4/0f172a?text=Dashboard+Screenshot) |
+| The home page is your focused entry point to capture thoughts quickly and start daily reflection without friction. | The chat page lets you talk to your journal with local RAG-backed context, so responses stay relevant to your own history. | The dashboard gives you a clear view of mood patterns, consistency, and long-term progress across your journaling journey. |
 
 ## Setting Up the AI Models
 
