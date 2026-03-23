@@ -62,26 +62,6 @@ manasCore is a local-first AI journaling app designed to help users reflect clea
      npm start
      ```
 
-## Setting Up the AI Models
-
-You can set up your API keys and models directly from the **Profile > Settings** page inside the application, or by editing the `.env` file.
-
-### 1. Primary Model: Google Gemini
-
-1. Go to [Google AI Studio](https://aistudio.google.com/).
-2. Sign in with your Google account.
-3. Click **"Get API key"** and create a new key.
-4. Paste this key into the application settings.
-
-### 2. Fallback Model: Local Ollama (Offline)
-
-1. Download and install [Ollama](https://ollama.com/download).
-2. Open your terminal and pull the recommended model:
-   ```bash
-   ollama pull gemma3:4b
-   ```
-3. Ensure Ollama is running in the background.
-
 ## Prerequisites
 
 ### 1. Install `uv` (Fast Python Package Manager)
