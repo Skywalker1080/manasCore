@@ -480,11 +480,10 @@ export default function EntriesPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="font-serif text-3xl tracking-tight text-foreground/90 md:text-4xl flex items-center gap-3">
-              <BookOpen className="h-7 w-7 text-chart-2/80" />
+            <h1 className="font-system-serif text-3xl leading-6 tracking-tight text-foreground/90 md:text-3xl flex items-center gap-3">
               Journal Entries
             </h1>
-            <p className="mt-1 text-xs tracking-wide text-muted-foreground/50">
+            <p className="text-muted-foreground text-sm">
               Browse your Journal entries
             </p>
           </div>

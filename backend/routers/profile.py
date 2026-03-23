@@ -24,6 +24,20 @@ def get_config():
 @router.put("/config")
 def update_config(request: ConfigUpdateRequest):
     """Update GEMINI_API_KEY and/or OLLAMA_BASE_URL in .env and reload settings."""
+    if request.gemini_api_key:
+        try:
+            from litellm import completion
+            # Validate key with a tiny generation
+            completion(
+                model="gemini/gemini-3-flash-preview",
+                messages=[{"role": "user", "content": "test validation"}],
+                api_key=request.gemini_api_key,
+                max_tokens=1
+            )
+        except Exception as e:
+            logger.error(f"API Key validation failed for provided key: {e}")
+            raise HTTPException(status_code=400, detail="Invalid Gemini API Key. Please verify and try again.")
+
     try:
         update_env_and_reload(
             gemini_api_key=request.gemini_api_key,

@@ -142,8 +142,8 @@ export default function RagLabPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div>
-              <h1 className="font-serif text-3xl tracking-tight text-foreground/90">RAG Lab</h1>
-              <p className="text-xs text-muted-foreground/60">Development observability + eval bench</p>
+              <h1 className="font-system-serif text-3xl leading-6 tracking-tight text-foreground/90 md:text-3xl flex items-center gap-3">RAG Lab</h1>
+              <p className="text-muted-foreground text-sm">Development observability + eval bench</p>
             </div>
           </div>
           <button

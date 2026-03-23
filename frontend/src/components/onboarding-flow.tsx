@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { JournalInput } from "@/components/journal-input";
 import { api, type JournalEntry } from "@/lib/api";
-import { Loader2, Sun, Cloud, CloudRain, Lightbulb, BookOpen, Key } from "lucide-react";
+import { Loader2, Sun, Cloud, CloudRain, Lightbulb, BookOpen, Key, X } from "lucide-react";
 import { format } from "date-fns";
 import { StreakCard } from "@/components/streak-card";
 import { EmotionChart } from "@/components/emotion-chart";
@@ -198,9 +198,11 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       enqueue(
         [
           `So it begins, ${name}.`,
-          "Ready to see how this works?",
+          "manasCore is a local first AI Journal, complete privacy for your data.",
+          "Though this app is local-first, you can still use powerful models via Gemini. You can get an API key from Google AI Studio (https://aistudio.google.com/app/apikey).",
+          "The API key is stored securely on disk and never exposed to the browser. Paste yours below."
         ],
-        () => setShowNext(true)
+        () => setShowApiKeyInput(true)
       );
     }, 400);
   };
@@ -336,26 +338,13 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         enqueue(
           [
             `You're all set, ${userName}!`,
-            `What we did is, built you Anti Vision the exact future you want to avoid`,
-            `Then we flipped you Anti vision to your Vision this is the exact life you want to head towards`,
-            `Your journal is now personalized to align with you Vision and Goals.`,
-            `Before we finish our onboarding let me tell you some of the features of your journal`
+            `What we did is, built your Anti Vision, the exact future you want to avoid`,
+            `Then we flipped your Anti vision to a Vision, this is the exact life you want to head towards`,
+            `Your journal is now personalized to align with your Vision and Goals.`,
+            `The journal is also powered by a local RAG system so you can chat with it and ask about any journal entry.`,
+            `Cool, Want to write your first real entry now?`
           ],
-          () => setShowNext(true)
-        );
-      }, 300);
-    } else if (step === 7) {
-      setStep(8);
-      setShowNext(false);
-
-      setTimeout(() => {
-        enqueue(
-          [
-            "manasCore is a local first AI Journal, complete privacy for your data.",
-            "Though this app is local-first, you can still use powerful models via Gemini. You can get an API key from Google AI Studio (https://aistudio.google.com/app/apikey).",
-            "The API key is stored securely on disk and never exposed to the browser. Paste yours below."
-          ],
-          () => setShowApiKeyInput(true)
+          () => setShowFinalActions(true)
         );
       }, 300);
     }
@@ -707,10 +696,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       setTimeout(() => {
         enqueue(
           [
-             "The journal is also powered by a local RAG system so you can chat with it and ask about any journal entry.",
-             "Cool, Want to write your first real entry now?"
+             "Got it.",
+             "Ready to see how this works?"
           ],
-          () => setShowFinalActions(true)
+          () => setShowNext(true)
         );
       }, 400);
     } catch (err: any) {
@@ -718,21 +707,6 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       setError(err.message || "Failed to save API key.");
       setShowApiKeyInput(true);
     }
-  };
-
-  const handleSkipApiKey = () => {
-    setShowApiKeyInput(false);
-    addOrUpdateMessage({ id: `user-skip-apikey-${Date.now()}`, role: "user", text: "I'll do this later." });
-    
-    setTimeout(() => {
-      enqueue(
-        [
-           "No worries. The journal is also powered by a local RAG system so you can chat with it and ask about any journal entry.",
-           "Cool, Want to write your first real entry now?"
-        ],
-        () => setShowFinalActions(true)
-      );
-    }, 400);
   };
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -862,8 +836,15 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       {/* Bottom actions */}
       <div className="mx-auto w-full max-w-2xl px-6 sm:px-12 md:px-0 pb-10">
         {error && (
-          <div className="mb-3 rounded-md bg-destructive/15 px-4 py-2 text-sm text-destructive">
-            {error}
+          <div className="mb-3 flex items-start justify-between rounded-md bg-destructive/15 px-4 py-2 text-sm text-destructive">
+            <span className="mt-0.5">{error}</span>
+            <button 
+              onClick={() => setError(null)} 
+              className="ml-3 shrink-0 rounded-full p-1 opacity-70 hover:bg-destructive/20 hover:opacity-100 transition-all"
+              aria-label="Dismiss error"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         )}
 
@@ -1066,12 +1047,6 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 You can get one from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-chart-2 hover:underline">Google AI Studio</a>.
               </p>
               <div className="flex items-center justify-end gap-4">
-                <button
-                  onClick={handleSkipApiKey}
-                  className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Skip for now
-                </button>
                 <button
                   onClick={handleApiKeySubmit}
                   disabled={!apiKey.trim()}

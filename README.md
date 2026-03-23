@@ -1,13 +1,25 @@
 # manasCore - Your Inner Journal
 
-A reflective AI journaling experience for solitude and self-discovery, powered by RAG and dual AI models (Gemini + Ollama fallback).
+![manasCore Banner Placeholder](https://placehold.co/1200x320/0f172a/e2e8f0?text=manasCore+Banner)
+
+![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
+![Release](https://img.shields.io/badge/release-v0.1.0-informational?style=for-the-badge)
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![LiteLLM](https://img.shields.io/badge/LiteLLM-111111?style=for-the-badge)
+![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)
+
+## About The Project
+
+manasCore is a local-first AI journaling app designed to help users reflect clearly, build consistent self-awareness, and track growth over time with private journaling workflows that can run on-device while still supporting cloud AI when needed.
 
 ## Key Features
 
-- **AI Journaling & Chat:** Log your thoughts and chat with your journal using a personalized AI.
-- **RAG Powered:** The AI remembers your past entries and aligns advice with your goals and vision.
-- **Dual AI Resiliency:** Uses Gemini Flash by default, with an automatic fallback to local Ollama if offline.
-- **Rich Analytics:** Visualizes your emotional patterns and habits over time.
+- Local-first design
+- Fall-back mechanism
+- Optimized for low-parameter local models
+- Complete data privacy with local storage
+- You own your journal
 
 ## Setting Up the AI Models
 
