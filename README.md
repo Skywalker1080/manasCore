@@ -34,12 +34,16 @@ manasCore is a local-first AI journaling app designed to help users reflect clea
 ## Quick Start
 
 1. **Download and install Ollama** from [ollama.com/download](https://ollama.com/download).
-2. **Pull the recommended local model (`gemma3:4b`)**:
+2. **Pull the embedding model (`nomic-embed-text:latest`)**:
+   ```bash
+   ollama pull nomic-embed-text:latest
+   ```
+3. **Pull the recommended local generation model (`gemma3:4b`)**:
    ```bash
    ollama pull gemma3:4b
    ```
-3. **Ensure Ollama is running** in the background.
-4. **Install `uv`** (required for backend dependencies):
+4. **Ensure Ollama is running** in the background.
+5. **Install `uv`** (required for backend dependencies):
    - macOS/Linux:
      ```bash
      curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -48,11 +52,11 @@ manasCore is a local-first AI journaling app designed to help users reflect clea
      ```powershell
      powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
      ```
-5. **Install app dependencies** from the project root:
+6. **Install app dependencies** from the project root:
    ```bash
    npm run install:all
    ```
-6. **Run the app**:
+7. **Run the app**:
    - Development:
      ```bash
      npm run dev
@@ -61,6 +65,33 @@ manasCore is a local-first AI journaling app designed to help users reflect clea
      ```bash
      npm start
      ```
+
+## Recommended Models
+
+### Gemini
+
+- `gemini-3-flash-preview`  
+  Previously used default. Expected to be deprecated soon, so avoid using it for new setups.
+- `gemini-3.1-flash-lite-preview`  
+  Recommended Gemini default: fast and cheap.
+- `gemini-2.5-flash`  
+  Fast and one of the cheapest reliable options.
+
+### Ollama (Local)
+
+- `gemma3:4b`  
+  Most recommended: strong quality-to-speed balance.
+- `nemotron-mini:4b`  
+  Fast and small; great for low-resource machines.
+- `llama3.2:3b`  
+  Very small and lightweight, but lower response quality.
+- `qwen3.5:4b`  
+  High quality, but significantly slower in practice.
+
+### Cloud Models
+
+- `gpt-oss:20b-cloud`
+- `gemma3:27b-cloud`
 
 ## How to Run
 
@@ -271,6 +302,29 @@ Before final generation, prompts are assembled in a deliberate order:
 5. user message
 
 This ordering makes the assistant less generic and more directional, so responses are grounded in the user's history and aligned with long-term self-correction rather than one-off chat replies.
+
+## RAG Lab
+
+RAG Lab was built to make retrieval quality visible and testable instead of treating RAG as a black box. As the chat system evolved from semantic-only retrieval to hybrid temporal + semantic search, we needed a way to inspect traces, evaluate retrieval quality, and verify whether answers were actually grounded in the right journal entries.
+
+For advanced users, builders, and contributors, RAG Lab helps answer practical questions like:
+
+- Did the system retrieve the right entries for this query?
+- Was temporal intent detected correctly?
+- Did fallback routing affect output quality?
+- Is answer quality improving over time after prompt/retrieval changes?
+
+### How to Use RAG Lab
+
+1. Open the app and navigate to `/dev/rag-lab`.
+2. Review recent traces to inspect query, retrieval mode, latency, and error states.
+3. Open a trace to inspect retrieved entries, ranking, and run-level metadata.
+4. Create eval cases from real traces to capture expected retrieval behavior.
+5. Run evals to score retrieval quality across cases (precision/recall style signals).
+6. Add manual judgments when needed to capture groundedness and trust quality.
+7. Iterate on prompts, retrieval logic, or model routing, then rerun evals to compare.
+
+RAG Lab turns journaling intelligence into an observable system: you can debug failures, validate improvements, and make architecture changes with evidence instead of guesswork.
 
 ## Philosophy & Vision
 
