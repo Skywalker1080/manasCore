@@ -24,16 +24,6 @@ manasCore is a local-first AI journaling app designed to help users reflect clea
 - Complete privacy-first storage with journal data persisted locally by default.
 - Full ownership of your journal data, with no forced external dependency for your core experience.
 
-## Philosophy & Vision
-
-I became deeply obsessed with journaling because I believed in this idea: _"The fastest way to change is to obsessively reflect back on your life and do not lie to yourself about what life it is creating."_ ~ Dan Koe.
-
-But I learned that writing consistently is only one part of the problem. Journaling was easy to start, yet often overwhelming to continue. I struggled to articulate what I truly felt, and even when emotions were loud in my head, I could not turn them into action. Over time, my journal became messier, and the same question kept returning: what now, and where is the feedback loop?
-
-I looked for AI journaling products, but most charged around $20 a month (about ₹9,000 in some plans) for features powered by expensive API usage. At the same time, open-source models were rapidly improving and becoming practical even on low-end machines. That shift inspired manasCore: a local-first journal that brings powerful AI reflection, pattern detection, and actionable feedback without locking users behind recurring AI pricing.
-
-This app was born from my own emotional struggle. I was not good at expressing what I felt, and I often felt emotionally weak. Studying emotional intelligence gave me a way forward. While trying to fix my own life, I built manasCore, and it helped me understand myself, see patterns I kept repeating, take action, and track real progress. The vision is simple: make deep, honest self-reflection private, practical, and accessible to everyone.
-
 ## Product Showcase
 
 | Home Page | Chat with Journal | Dashboard |
@@ -149,3 +139,97 @@ flowchart LR
     AR --> DB
     RR --> DB
 ```
+
+### Low-Level Design
+
+#### Queue Service (Async Entry Processing)
+
+When a user creates a journal entry, the backend stores it immediately with `pending=true` and returns fast. Background processing then extracts structured metadata and stores embeddings without blocking the user experience.
+
+```mermaid
+sequenceDiagram
+    participant FE as Frontend
+    participant JR as /entries router
+    participant DB as journal_entries
+    participant QS as Queue Service
+    participant AG as Agent
+    participant VDB as vec_entries
+
+    FE->>JR: POST /entries (user_log, optional model)
+    JR->>DB: INSERT entry (pending=true)
+    JR-->>FE: 202 Accepted + entry id
+    JR->>QS: background task process_single_entry(id)
+    QS->>AG: extract(title, emotion, sentiment, mode, summary, tags)
+    QS->>DB: UPDATE entry metadata, pending=false
+    QS->>AG: generate embedding(user_log)
+    QS->>VDB: INSERT OR REPLACE vector by entry_id
+```
+
+#### Hybrid RAG (Temporal + Semantic Retrieval)
+
+The chat retrieval layer first checks temporal intent (for queries like "this week", "last month", "from X to Y"), then merges date-filtered entries with vector similarity results from `sqlite-vec`, and builds a grounded context block for the LLM.
+
+```mermaid
+flowchart TD
+    Q[User Query] --> T{Temporal intent?}
+    T -->|Yes| D[Date range search in journal_entries]
+    T -->|No| S[Semantic search in vec_entries]
+    D --> M[Merge + de-duplicate]
+    S --> M
+    M --> C[Build journal context + profile context]
+    C --> L[LLM response generation]
+```
+
+#### Chat with Individual Journal Entry
+
+For entry-focused chat, the frontend sends entry content and metadata directly to `/chat/entry/stream`. The backend builds a scoped system prompt around that single entry and streams tokens back over SSE.
+
+```mermaid
+sequenceDiagram
+    participant FE as Frontend (/chat?entry=...)
+    participant CR as /chat/entry/stream
+    participant PS as ProfileService
+    participant LLM as LiteLLM stream
+
+    FE->>CR: POST entry context + history + message
+    CR->>PS: load personality profile
+    CR->>CR: compose entry-scoped system prompt
+    CR->>LLM: stream completion(messages)
+    LLM-->>CR: token chunks
+    CR-->>FE: SSE token events + done
+```
+
+#### Default and Fallback Model Routing
+
+Model routing is centralized in `backend/agent/llm_client.py`: Gemini is the default path, local Ollama is fallback for failures, and explicit user model selection can force local routing.
+
+```mermaid
+flowchart TD
+    R[Request with optional model_name] --> U{User selected model?}
+    U -->|Yes| O1[Route to ollama/<model_name>]
+    U -->|No| G[Try gemini/gemini-3-flash-preview]
+    G -->|Success| OUT[Return output]
+    G -->|Failure| O2[Fallback to ollama/gemma3:4b]
+    O1 --> OUT
+    O2 -->|Success| OUT
+    O2 -->|Failure| ERR[Return graceful error message]
+```
+
+## Tradeoffs & Decisions
+
+_Placeholder: This section will document key engineering decisions, tradeoffs we accepted, and why those choices were made._
+
+- Decision placeholder: [What we chose]
+- Tradeoff placeholder: [What we gave up]
+- Why placeholder: [Reasoning behind the decision]
+- Future revisit placeholder: [When/why we may change this]
+
+## Philosophy & Vision
+
+I became deeply obsessed with journaling because I believed in this idea: _"The fastest way to change is to obsessively reflect back on your life and do not lie to yourself about what life it is creating."_ ~ Dan Koe.
+
+But I learned that writing consistently is only one part of the problem. Journaling was easy to start, yet often overwhelming to continue. I struggled to articulate what I truly felt, and even when emotions were loud in my head, I could not turn them into action. Over time, my journal became messier, and the same question kept returning: what now, and where is the feedback loop?
+
+I looked for AI journaling products, but most charged around $20 a month (about Rs 9,000 in some plans) for features powered by expensive API usage. At the same time, open-source models were rapidly improving and becoming practical even on low-end machines. That shift inspired manasCore: a local-first journal that brings powerful AI reflection, pattern detection, and actionable feedback without locking users behind recurring AI pricing.
+
+This app was born from my own emotional struggle. I was not good at expressing what I felt, and I often felt emotionally weak. Studying emotional intelligence gave me a way forward. While trying to fix my own life, I built manasCore, and it helped me understand myself, see patterns I kept repeating, take action, and track real progress. The vision is simple: make deep, honest self-reflection private, practical, and accessible to everyone.
