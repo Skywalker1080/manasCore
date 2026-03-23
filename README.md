@@ -62,21 +62,57 @@ manasCore is a local-first AI journaling app designed to help users reflect clea
      npm start
      ```
 
-## Prerequisites
+## For Nerds
 
-### 1. Install `uv` (Fast Python Package Manager)
+manasCore is a Next.js + FastAPI local-first system where journal entries are written immediately to SQLite, processed asynchronously for AI metadata and embeddings, and then reused through a hybrid RAG chat pipeline (temporal + semantic retrieval) with LiteLLM-based model routing between Gemini and local Ollama.
 
-`uv` is required to manage the backend dependencies.
+- `frontend/src/lib/api.ts` is the typed API contract for journal CRUD, chat streaming (SSE), analytics, profile/config, and dev RAG lab endpoints.
+- `backend/routers/*` exposes domain APIs (`/entries`, `/chat`, `/analytics`, `/profile`, `/models`, `/dev/rag`).
+- `backend/services/queue.py` runs async post-processing: extract title/emotion/sentiment/tags + generate/store embeddings.
+- `backend/services/chat.py` performs hybrid retrieval from `journal_entries` + `vec_entries` and builds grounded chat context.
+- `backend/agent/llm_client.py` handles model routing and fallback (`Gemini -> Ollama`) for generation, streaming, and embeddings.
+- Data is local by default: SQLite (`journal_entries`, `vec_entries`) plus local markdown profile files in `data/profiles`.
 
-- **macOS & Linux:**
-  ```bash
-  curl -LsSf https://astral.sh/uv/install.sh | sh
-  ```
+```mermaid
+flowchart LR
+    U[User] --> FE[Next.js Frontend]
 
-- **Windows:**
-  ```powershell
-  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-  ```
+    subgraph API[FastAPI Backend]
+      JR[/entries router/]
+      CR[/chat router/]
+      AR[/analytics router/]
+      PR[/profile router/]
+      MR[/models router/]
+      RR[/dev rag router/]
+      QS[Queue Service]
+      CS[Chat Service\nHybrid RAG]
+      AG[Agent + LiteLLM Client]
+    end
+
+    FE --> JR
+    FE --> CR
+    FE --> AR
+    FE --> PR
+    FE --> MR
+    FE --> RR
+
+    JR -->|create pending entry| DB[(SQLite\njournal_entries)]
+    JR -->|background task| QS
+    QS --> AG
+    QS -->|store metadata| DB
+    QS -->|store vectors| VDB[(SQLite vec_entries)]
+
+    CR --> CS
+    CS --> DB
+    CS --> VDB
+    CS --> AG
+    AG -->|primary| G[Gemini]
+    AG -->|fallback / local| O[Ollama gemma3:4b]
+
+    PR --> PF[(data/profiles/*.md + .env)]
+    AR --> DB
+    RR --> DB
+```
 
 ## How to Run
 
