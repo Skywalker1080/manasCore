@@ -28,7 +28,7 @@ manasCore is a local-first AI journaling app designed to help users reflect clea
 
 | Home Page | Chat with Journal | Dashboard |
 | --- | --- | --- |
-| ![Home Page Placeholder](https://placehold.co/640x360/f8fafc/0f172a?text=Home+Page+Screenshot) | ![Chat with Journal Placeholder](https://placehold.co/640x360/ecfeff/0f172a?text=Chat+with+Journal+Screenshot) | ![Dashboard Placeholder](https://placehold.co/640x360/f0fdf4/0f172a?text=Dashboard+Screenshot) |
+| ![Home Page](./images/home.png) | ![Chat with Journal](./images/Chat.png) | ![Dashboard](./images/dashboard.png) |
 | The home page is your focused entry point to capture thoughts quickly and start daily reflection without friction. | The chat page lets you talk to your journal with local RAG-backed context, so responses stay relevant to your own history. | The dashboard gives you a clear view of mood patterns, consistency, and long-term progress across your journaling journey. |
 
 ## Quick Start
@@ -74,6 +74,16 @@ Both unified commands start:
 - **Backend (FastAPI):** http://localhost:8000
 
 Open `http://localhost:3000` in your browser to begin your journaling journey!
+
+## Philosophy & Vision
+
+I became deeply obsessed with journaling because I believed in this idea: _"The fastest way to change is to obsessively reflect back on your life and do not lie to yourself about what life it is creating."_ ~ Dan Koe.
+
+But I learned that writing consistently is only one part of the problem. Journaling was easy to start, yet often overwhelming to continue. I struggled to articulate what I truly felt, and even when emotions were loud in my head, I could not turn them into action. Over time, my journal became messier, and the same question kept returning: what now, and where is the feedback loop?
+
+I looked for AI journaling products, but most charged around $20 a month (about Rs 9,000 in some plans) for features powered by expensive API usage. At the same time, open-source models were rapidly improving and becoming practical even on low-end machines. That shift inspired manasCore: a local-first journal that brings powerful AI reflection, pattern detection, and actionable feedback without locking users behind recurring AI pricing.
+
+This app was born from my own emotional struggle. I was not good at expressing what I felt, and I often felt emotionally weak. Studying emotional intelligence gave me a way forward. While trying to fix my own life, I built manasCore, and it helped me understand myself, see patterns I kept repeating, take action, and track real progress. The vision is simple: make deep, honest self-reflection private, practical, and accessible to everyone.
 
 ## System Architecture
 
@@ -309,12 +319,3 @@ RAG Lab turns journaling intelligence into an observable system: you can debug f
 - `gpt-oss:20b-cloud`
 - `gemma3:27b-cloud`
 
-## Philosophy & Vision
-
-I became deeply obsessed with journaling because I believed in this idea: _"The fastest way to change is to obsessively reflect back on your life and do not lie to yourself about what life it is creating."_ ~ Dan Koe.
-
-But I learned that writing consistently is only one part of the problem. Journaling was easy to start, yet often overwhelming to continue. I struggled to articulate what I truly felt, and even when emotions were loud in my head, I could not turn them into action. Over time, my journal became messier, and the same question kept returning: what now, and where is the feedback loop?
-
-I looked for AI journaling products, but most charged around $20 a month (about Rs 9,000 in some plans) for features powered by expensive API usage. At the same time, open-source models were rapidly improving and becoming practical even on low-end machines. That shift inspired manasCore: a local-first journal that brings powerful AI reflection, pattern detection, and actionable feedback without locking users behind recurring AI pricing.
-
-This app was born from my own emotional struggle. I was not good at expressing what I felt, and I often felt emotionally weak. Studying emotional intelligence gave me a way forward. While trying to fix my own life, I built manasCore, and it helped me understand myself, see patterns I kept repeating, take action, and track real progress. The vision is simple: make deep, honest self-reflection private, practical, and accessible to everyone.
