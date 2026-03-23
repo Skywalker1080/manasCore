@@ -31,6 +31,37 @@ manasCore is a local-first AI journaling app designed to help users reflect clea
 | ![Home Page Placeholder](https://placehold.co/640x360/f8fafc/0f172a?text=Home+Page+Screenshot) | ![Chat with Journal Placeholder](https://placehold.co/640x360/ecfeff/0f172a?text=Chat+with+Journal+Screenshot) | ![Dashboard Placeholder](https://placehold.co/640x360/f0fdf4/0f172a?text=Dashboard+Screenshot) |
 | The home page is your focused entry point to capture thoughts quickly and start daily reflection without friction. | The chat page lets you talk to your journal with local RAG-backed context, so responses stay relevant to your own history. | The dashboard gives you a clear view of mood patterns, consistency, and long-term progress across your journaling journey. |
 
+## Quick Start
+
+1. **Download and install Ollama** from [ollama.com/download](https://ollama.com/download).
+2. **Pull the recommended local model (`gemma3:4b`)**:
+   ```bash
+   ollama pull gemma3:4b
+   ```
+3. **Ensure Ollama is running** in the background.
+4. **Install `uv`** (required for backend dependencies):
+   - macOS/Linux:
+     ```bash
+     curl -LsSf https://astral.sh/uv/install.sh | sh
+     ```
+   - Windows:
+     ```powershell
+     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+     ```
+5. **Install app dependencies** from the project root:
+   ```bash
+   npm run install:all
+   ```
+6. **Run the app**:
+   - Development:
+     ```bash
+     npm run dev
+     ```
+   - Production:
+     ```bash
+     npm start
+     ```
+
 ## Setting Up the AI Models
 
 You can set up your API keys and models directly from the **Profile > Settings** page inside the application, or by editing the `.env` file.
@@ -47,7 +78,7 @@ You can set up your API keys and models directly from the **Profile > Settings**
 1. Download and install [Ollama](https://ollama.com/download).
 2. Open your terminal and pull the recommended model:
    ```bash
-   ollama run gemma3:4b
+   ollama pull gemma3:4b
    ```
 3. Ensure Ollama is running in the background.
 
