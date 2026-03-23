@@ -217,12 +217,60 @@ flowchart TD
 
 ## Tradeoffs & Decisions
 
-_Placeholder: This section will document key engineering decisions, tradeoffs we accepted, and why those choices were made._
+### 1. Model Routing Strategy
 
-- Decision placeholder: [What we chose]
-- Tradeoff placeholder: [What we gave up]
-- Why placeholder: [Reasoning behind the decision]
-- Future revisit placeholder: [When/why we may change this]
+The default model was set to `gemini-3-flash` because Google AI Studio offers a generous free tier, Gemini API keys are easy to obtain, and the model is fast and strong for general reasoning.  
+The tradeoff is clear: defaulting to cloud inference can conflict with a strict local-first philosophy.
+
+To balance this, a model selector was implemented so users can run any Ollama model already available on their device. A strict local fallback was also added to `gemma3:4b`, chosen after development testing where it delivered strong quality-to-speed performance on low-memory systems (including around 4 GB RAM), while models like `qwen3` and `llama` variants were often heavier or slower in practice.
+
+As model availability improved, `nemotron-mini-3` also became a recommended option due to strong journal understanding and fast inference. Ollama cloud routes are additionally useful when users want managed access with generous limits.
+
+### 2. LiteLLM Over LangGraph
+
+`litellm` was selected as the inference abstraction layer because it is lightweight and provider-flexible (Gemini, OpenAI, Claude, Ollama, and others) without adding large orchestration overhead.
+
+The tradeoff was not using framework-heavy agent orchestration (for example, LangGraph). This was an intentional decision to keep the runtime simpler, faster to maintain, and easier to extend with new model providers.
+
+### 3. Database Selection (SQLite + sqlite-vec)
+
+The system needed to be local-first, lightweight, and fast for vector retrieval. While a stack like Postgres + pgvector (often with Docker) was considered, SQLite was chosen for native Python compatibility, low operational cost, and single-file local portability.
+
+`sqlite-vec` made this choice stronger by enabling vector search inside the same database, using a virtual vector table (`vec_entries`) linked to journal entries. This avoided introducing a separate vector database process.
+
+### 4. Backend Framework Choice (FastAPI)
+
+FastAPI was selected because it is fast, async-friendly, type-safe, and integrates cleanly with Python services already used in the project.
+
+This supported a practical architecture: quick API development, background queue tasks, and streaming chat endpoints (SSE) with minimal friction.
+
+### 5. Hybrid RAG Evolution
+
+The first version used semantic RAG only (`top-k` similarity retrieval), which worked well for general reflective prompts but underperformed for temporal queries such as:
+
+- "Analyze my last week."
+- "Compare me from my day 1."
+
+These queries require date-scoped recall first, not just semantic similarity. The pipeline was upgraded to hybrid retrieval:
+
+- temporal intent detection via regex/date parsing,
+- explicit date-range filtering from `journal_entries`,
+- semantic retrieval from vectors,
+- merged and de-duplicated results with temporal priority for temporal queries.
+
+This significantly improved retrieval relevance and response quality for reflection-over-time questions.
+
+### 6. Prompt Composition Decision
+
+Before final generation, prompts are assembled in a deliberate order:
+
+1. personality
+2. vision
+3. goals
+4. retrieved journal context
+5. user message
+
+This ordering makes the assistant less generic and more directional, so responses are grounded in the user's history and aligned with long-term self-correction rather than one-off chat replies.
 
 ## Philosophy & Vision
 
