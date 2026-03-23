@@ -43,6 +43,9 @@ manasCore is a local-first AI journaling app designed to help users reflect clea
    ollama pull gemma3:4b
    ```
 4. **Ensure Ollama is running** in the background.
+   ```bash
+   ollama serve
+   ```
 5. **Install `uv`** (required for backend dependencies):
    - macOS/Linux:
      ```bash
@@ -65,53 +68,6 @@ manasCore is a local-first AI journaling app designed to help users reflect clea
      ```bash
      npm start
      ```
-
-## Recommended Models
-
-### Gemini
-
-- `gemini-3-flash-preview`  
-  Previously used default. Expected to be deprecated soon, so avoid using it for new setups.
-- `gemini-3.1-flash-lite-preview`  
-  Recommended Gemini default: fast and cheap.
-- `gemini-2.5-flash`  
-  Fast and one of the cheapest reliable options.
-
-### Ollama (Local)
-
-- `gemma3:4b`  
-  Most recommended: strong quality-to-speed balance.
-- `nemotron-mini:4b`  
-  Fast and small; great for low-resource machines.
-- `llama3.2:3b`  
-  Very small and lightweight, but lower response quality.
-- `qwen3.5:4b`  
-  High quality, but significantly slower in practice.
-
-### Cloud Models
-
-- `gpt-oss:20b-cloud`
-- `gemma3:27b-cloud`
-
-## How to Run
-
-1. **Install dependencies** (from the project root):
-
-   ```bash
-   npm run install:all
-   ```
-
-2. **Start the full app in development (frontend + backend)**:
-
-   ```bash
-   npm run dev
-   ```
-
-3. **Start the full app in production (recommended)**:
-
-   ```bash
-   npm start
-   ```
 
 Both unified commands start:
 - **Frontend (Next.js):** http://localhost:3000
@@ -325,6 +281,33 @@ For advanced users, builders, and contributors, RAG Lab helps answer practical q
 7. Iterate on prompts, retrieval logic, or model routing, then rerun evals to compare.
 
 RAG Lab turns journaling intelligence into an observable system: you can debug failures, validate improvements, and make architecture changes with evidence instead of guesswork.
+
+## Recommended Models
+
+### Gemini
+
+- `gemini-3-flash-preview`  
+  Previously used default. Expected to be deprecated soon, so avoid using it for new setups.
+- `gemini-3.1-flash-lite-preview`  
+  Recommended Gemini default: fast and cheap.
+- `gemini-2.5-flash`  
+  Fast and one of the cheapest reliable options.
+
+### Ollama (Local)
+
+- `gemma3:4b`  
+  Most recommended: strong quality-to-speed balance.
+- `nemotron-mini:4b`  
+  Fast and small; great for low-resource machines.
+- `llama3.2:3b`  
+  Very small and lightweight, but lower response quality.
+- `qwen3.5:4b`  
+  High quality, but significantly slower in practice.
+
+### Cloud Models
+
+- `gpt-oss:20b-cloud`
+- `gemma3:27b-cloud`
 
 ## Philosophy & Vision
 
