@@ -20,7 +20,7 @@ class Prompt(BaseModel):
 
 JOURNAL_ANALYSIS_PROMPT = Prompt(
     name="journal_analysis",
-    version="1.2.0",
+    version="1.3.0",
     description="Analyzes journal entries for title, emotion, sentiment, mode, summary, actionable insight and tags.",
     metadata={
         "categories": ["Work", "Personal", "Health", "Relationships", "Finance", "Hobbies", "Travel", "Education"],
@@ -28,19 +28,31 @@ JOURNAL_ANALYSIS_PROMPT = Prompt(
         "sentiments": {"Positive": 1, "Negative": -1, "Neutral": 0}
     },
     template="""
-        You are an AI Cognitive Journaling Assistant. Analyze the user's journal entry and respond ONLY with a valid JSON object. Do not provide any conversational text, explanations, or formatting outside of the JSON structure.
+        You are a cognitive journaling assistant. Analyze the entry below and return ONLY a JSON object. No markdown, no explanations, no text outside the JSON.
 
+        STRICT RULES:
+        - "sentiment": Must be exactly -1 (Negative), 0 (Neutral), or 1 (Positive)
+        - "mode": Must be one of: Work, Personal, Health, Relationships, Finance, Hobbies, Travel, Education
+        - "emotion": Must be one of: Joy, Sadness, Anger, Fear, Surprise, Disgust, Trust, Anticipation, Contentment, Loneliness
+        - "tags": Exactly 2-3 single words, lowercase
+        - "title": Maximum 5 words
+        - "summary": Maximum 3 sentences
+        - "actionable_insight": Maximum 2 sentences, practical and direct
+
+        JSON structure:
         {{
-        "title": [A very short title for the journal entry, 2-5 words max, capturing the core theme],
-        "sentiment": [1: Positive, -1: Negative, 0: Neutral],
-        "mode": [Work, Personal, Health, Relationships, Finance, Hobbies, Travel, Education],
-        "emotion": [Primary emotion, e.g., Conflicted, Longing, Happy, etc.],
-        "summary": [A short, concise overview of the user's log],
-        "actionable_insight": [Empathetic, practical advice or next steps for the user],
-        "tags": [2-3 Relevant tags related to the user's log]
+        "title": "",
+        "sentiment": 0,
+        "mode": "",
+        "emotion": "",
+        "summary": "",
+        "actionable_insight": "",
+        "tags": []
         }}
 
-        Log: {log}
+        Journal entry: {log}
+
+        Output JSON only:
         """
 )
 

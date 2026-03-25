@@ -13,7 +13,7 @@ logger = get_logger()
 genai_client = genai.Client(api_key=settings.GEMINI_API_KEY) if settings.GEMINI_API_KEY else None
 
 # Default model constants
-DEFAULT_PRIMARY_MODEL = "gemini/gemini-3-flash-preview"
+DEFAULT_PRIMARY_MODEL = "gemini/gemini-2.5-flash"
 DEFAULT_FALLBACK_MODEL = "ollama/gemma3:4b"
 
 # Captures route information for the most recent streaming request in this context.

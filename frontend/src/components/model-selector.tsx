@@ -12,7 +12,7 @@ interface ModelSelectorProps {
   compact?: boolean
 }
 
-const DEFAULT_MODEL_LABEL = "Gemini 3 Flash (Default)"
+const DEFAULT_MODEL_LABEL = "Gemini 2.5 Flash (Default)"
 
 export function ModelSelector({ value, onChange, disabled, compact }: ModelSelectorProps) {
   const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([])
@@ -98,7 +98,7 @@ export function ModelSelector({ value, onChange, disabled, compact }: ModelSelec
                 <img src="/gemini.svg" alt="Gemini" className="h-4 w-4 object-contain" />
               </div>
               <div className="flex flex-1 flex-col">
-                <span className="font-medium text-foreground/90">Gemini 3 Flash</span>
+                <span className="font-medium text-foreground/90">Gemini 2.5 Flash</span>
                 <span className="text-[11px] text-muted-foreground/60">Default · Cloud</span>
               </div>
               {!value && <Check className="h-4 w-4 text-chart-1" />}
