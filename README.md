@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://placehold.co/1200x320/0f172a/e2e8f0?text=manasCore+Banner" alt="manasCore Banner Placeholder" />
+  <img src="images/banner.png" alt="manasCore Banner Placeholder" />
 </p>
 
 <h1 align="center">manasCore - Your Inner Journal</h1>
